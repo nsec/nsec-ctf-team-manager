@@ -1,0 +1,18 @@
+[project]
+name = "nsec-team-manager-backend"
+version = "0.1.0"
+description = "Website to manage nsec CTF teams."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.0",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- XSS hardening: no inline scripts/styles, no external script origins,
+       no eval. connect-src 'self' allows API calls to the same origin only.
+       font-src/style-src include fonts.gstatic.com/fonts.googleapis.com for
+       the Roboto webfont (same as nsec.io). -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" />
+  <title>NSEC Team Manager</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>NSEC Team Manager</h1>
+  </header>
+
+  <main>
+    <section id="message" class="message hidden" aria-live="polite"></section>
+
+    <!-- Landing: choose an action -->
+    <section id="landing" class="card">
+      <h2>Welcome!</h2>
+      <p>What would you like to do?</p>
+      <div class="actions">
+        <button id="btn-show-create" class="btn primary">Create a team</button>
+        <button id="btn-show-join" class="btn">Join a team</button>
+      </div>
+    </section>
+
+    <!-- Create team -->
+    <section id="create-team" class="card hidden">
+      <h2>Create a team</h2>
+      <form id="create-form">
+        <label for="create-name">Team name</label>
+        <input
+          type="text"
+          id="create-name"
+          name="teamName"
+          placeholder="e.g. Kernel Panic"
+          maxlength="32"
+          required
+          autocomplete="off"
+        />
+        <p class="hint">Max length: <span data-config="maxTeamNameLength"></span> characters.</p>
+        <div class="actions">
+          <button type="submit" class="btn primary">Create</button>
+          <button type="button" class="btn" data-action="back">Back</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Join team -->
+    <section id="join-team" class="card hidden">
+      <h2>Join a team</h2>
+      <form id="join-form">
+        <label for="join-name">Team name</label>
+        <input
+          type="text"
+          id="join-name"
+          name="teamName"
+          placeholder="Enter the exact team name"
+          required
+          autocomplete="off"
+        />
+        <label for="join-username">Your username</label>
+        <input
+          type="text"
+          id="join-username"
+          name="username"
+          placeholder="e.g. alice"
+          maxlength="64"
+          required
+          autocomplete="off"
+        />
+        <p class="hint">Teams can have up to <span data-config="maxMembersPerTeam"></span> members.</p>
+        <div class="actions">
+          <button type="submit" class="btn primary">Join</button>
+          <button type="button" class="btn" data-action="back">Back</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Team view -->
+    <section id="team-view" class="card hidden">
+      <h2>Team: <span id="team-view-name"></span></h2>
+      <p id="team-view-role"></p>
+      <h3>Members (<span id="member-count"></span>/<span data-config="maxMembersPerTeam"></span>)</h3>
+      <ul id="member-list" class="member-list"></ul>
+      <div class="actions">
+        <button type="button" class="btn" data-action="back">Back</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Powered by the NSEC Team Manager API (FastAPI + SQLite).</p>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+/*
+ * NorthSec brand styles.
+ * Tokens from www.nsec.io (_sass/partials/_base.scss):
+ *   $nsec-light-blue: #1c75bc, $nsec-black: #1a1a1a, $nsec-first-gray: #f2f2f2
+ * Font: Roboto (300/400/500), flat square buttons, white background.
+ */
+
+:root {
+  --nsec-blue: #1c75bc;
+  --nsec-blue-hover: #155a90;
+  --nsec-black: #1a1a1a;
+  --nsec-gray: #f2f2f2;
+  --nsec-gray-dark: #d9d9d9;
+  --nsec-white: #fff;
+  --text-muted: #6f7479;
+  --danger: #c0392b;
+  --success: #1e8e4e;
+  --border: #d9d9d9;
+  --radius: 0; /* NorthSec uses flat, square corners */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  background: var(--nsec-white);
+  color: var(--nsec-black);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 1.25rem 1.5rem;
+  background: var(--nsec-black);
+  color: var(--nsec-white);
+  border-bottom: 4px solid var(--nsec-blue);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1rem;
+  background: var(--nsec-gray);
+}
+
+.card {
+  background: var(--nsec-white);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--nsec-blue);
+  border-radius: var(--radius);
+  padding: 2rem 2.5rem;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 1.25rem;
+}
+
+.card h3 {
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  padding: 0.65rem 1.5rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--nsec-gray-dark);
+  color: var(--nsec-black);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn:hover {
+  background: #c4c4c4;
+}
+
+.btn.primary {
+  background: var(--nsec-blue);
+  color: var(--nsec-white);
+}
+
+.btn.primary:hover {
+  background: var(--nsec-blue-hover);
+}
+
+.btn.danger {
+  background: transparent;
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.btn.danger:hover {
+  background: var(--danger);
+  color: var(--nsec-white);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--nsec-white);
+  color: var(--nsec-black);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--nsec-blue);
+  box-shadow: 0 0 0 2px rgba(28, 117, 188, 0.25);
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.message {
+  width: 100%;
+  max-width: 480px;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.25rem;
+  font-size: 0.95rem;
+  border-left: 4px solid var(--nsec-blue);
+  background: var(--nsec-white);
+}
+
+.message.info {
+  border-left-color: var(--nsec-blue);
+}
+
+.message.error {
+  border-left-color: var(--danger);
+  color: var(--danger);
+  background: #fdf1ef;
+}
+
+.message.success {
+  border-left-color: var(--success);
+  color: var(--success);
+  background: #eef8f2;
+}
+
+.member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.member-list li {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--nsec-blue);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  background: var(--nsec-white);
+}
+
+footer {
+  padding: 1rem 1.5rem;
+  background: var(--nsec-black);
+  color: #9aa0aa;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
