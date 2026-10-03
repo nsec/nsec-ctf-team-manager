@@ -48,6 +48,10 @@
       return request('POST', '/api/teams/join', { name, username });
     },
 
+    listTeams() {
+      return request('GET', '/api/teams');
+    },
+
     getTeam(name) {
       return request('GET', `/api/teams/${encodeURIComponent(name)}`);
     },

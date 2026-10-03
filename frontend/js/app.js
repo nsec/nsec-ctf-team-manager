@@ -79,7 +79,41 @@
 
   // --- Navigation buttons -------------------------------------------------
   document.getElementById('btn-show-create').addEventListener('click', () => show('create-team'));
-  document.getElementById('btn-show-join').addEventListener('click', () => show('join-team'));
+
+  function resetTeamOptions(select, placeholder) {
+    select.textContent = '';
+    const option = document.createElement('option');
+    option.value = '';
+    option.disabled = true;
+    option.selected = true;
+    option.textContent = placeholder;
+    select.appendChild(option);
+  }
+
+  document.getElementById('btn-show-join').addEventListener('click', async () => {
+    show('join-team');
+    const select = document.getElementById('join-name');
+    select.disabled = true;
+    resetTeamOptions(select, window.I18n.t('join.loadingTeams'));
+
+    try {
+      const teams = await window.Api.listTeams();
+      resetTeamOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      teams.forEach((team) => {
+        const option = document.createElement('option');
+        option.value = team.name;
+        option.textContent = team.name;
+        select.appendChild(option);
+      });
+      select.disabled = teams.length === 0;
+      if (teams.length === 0) {
+        showMessage(window.I18n.t('join.noTeams'), 'info');
+      }
+    } catch (err) {
+      resetTeamOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      showMessage(err.message, 'error');
+    }
+  });
 
   document.querySelectorAll('[data-action="back"]').forEach((btn) => {
     btn.addEventListener('click', () => show('landing'));

@@ -36,9 +36,13 @@ body {
 
 header {
   padding: 1.25rem 1.5rem;
-  background: var(--nsec-black);
-  color: var(--nsec-white);
+  background: var(--nsec-white);
+  color: var(--nsec-black);
   border-bottom: 4px solid var(--nsec-blue);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 header h1 {
@@ -47,6 +51,36 @@ header h1 {
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.language-control {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.language-toggle {
+  appearance: none;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--nsec-blue);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.language-toggle:hover {
+  color: var(--nsec-blue-hover);
+}
+
+.language-toggle:focus-visible {
+  outline: 2px solid var(--nsec-blue);
+  outline-offset: 3px;
 }
 
 main {
@@ -135,7 +169,8 @@ label {
   letter-spacing: 0.04em;
 }
 
-input[type="text"] {
+input[type="text"],
+select {
   width: 100%;
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
@@ -146,7 +181,8 @@ input[type="text"] {
   font-size: 1rem;
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+select:focus {
   outline: none;
   border-color: var(--nsec-blue);
   box-shadow: 0 0 0 2px rgba(28, 117, 188, 0.25);
@@ -202,8 +238,8 @@ input[type="text"]:focus {
 
 footer {
   padding: 1rem 1.5rem;
-  background: var(--nsec-black);
-  color: #9aa0aa;
+  background: var(--nsec-white);
+  color: var(--text-muted);
   font-size: 0.85rem;
   text-align: center;
 }

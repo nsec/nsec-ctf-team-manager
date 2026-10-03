@@ -89,11 +89,15 @@ new Function('window',
 const appSrc = fs.readFileSync(require('path').join(__dirname, '..', 'js', 'app.js'), 'utf8');
 // Evaluate in this context; stubs prevent DOM access errors.
 function loadApp() {
+  if (!global.window.I18n) {
+    global.window.I18n = { t: (key) => key };
+  }
   if (!global.window.Api) {
     global.window.Api = {
       loadConfig: async () => {},
       createTeam: async () => ({}),
       joinTeam: async () => ({}),
+      listTeams: async () => [],
       getTeam: async () => null,
     };
   }
@@ -171,6 +175,34 @@ PAYLOADS.forEach((p) => {
     // The rendered text must contain the payload as literal text, not markup.
     assert.strictEqual(elements['team-view-name'].textContent, p);
   });
+});
+
+console.log('join team dropdown loads available teams safely:');
+test('team names populate dropdown options as text', async () => {
+  const teamName = '<img src=x onerror=alert(1)>';
+  window.Api = {
+    loadConfig: async () => {},
+    listTeams: async () => [{ id: 1, name: teamName }],
+  };
+  loadApp();
+  await elements['btn-show-join'].on_click();
+  const select = elements['join-name'];
+  assert.strictEqual(select.disabled, false);
+  assert.strictEqual(select.children.length, 2);
+  assert.strictEqual(select.children[1].value, teamName);
+  assert.strictEqual(select.children[1].textContent, teamName);
+  assert.strictEqual(select.children[1].textContentSetWith, 'textContent');
+});
+
+test('empty team list leaves dropdown disabled and displays a message', async () => {
+  window.Api = {
+    loadConfig: async () => {},
+    listTeams: async () => [],
+  };
+  loadApp();
+  await elements['btn-show-join'].on_click();
+  assert.strictEqual(elements['join-name'].disabled, true);
+  assert.ok(elements.message.textContent.length > 0);
 });
 
 console.log('showMessage uses textContent:');
