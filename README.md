@@ -55,6 +55,7 @@ Copy `backend/.env.example` to `backend/.env` to configure these values. The
 backend loads that file on startup regardless of the current working directory;
 variables already set in the process environment take precedence.
 Team creation and joining require a valid Pretix order code and attendee email.
+An attendee email can belong to only one team.
 Configure `PRETIX_API_KEY`, `PRETIX_URL`, and `PRETIX_CTF_NAME` in the backend
 environment. Set `PRETIX_CTF_NAME` to the event title to discover it by name,
 or to `organizer-slug/event-slug` to address one event directly (for example,

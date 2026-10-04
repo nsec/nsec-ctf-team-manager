@@ -84,6 +84,39 @@ def test_create_duplicate_team():
     assert r.status_code == 409
 
 
+def test_email_can_only_belong_to_one_team_when_creating():
+    create_team("First team")
+    response = client.post(
+        "/api/teams",
+        json={
+            "name": "Second team",
+            "order_code": "OTHER",
+            "attendee_email": TEST_ATTENDEE_EMAIL.upper(),
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "This email already belongs to a team."
+    assert [team["name"] for team in client.get("/api/teams").json()] == [
+        "First team"
+    ]
+
+
+def test_email_cannot_join_a_second_team():
+    create_team("First team")
+    client.post(
+        "/api/teams",
+        json={
+            "name": "Second team",
+            "order_code": "OTHER",
+            "attendee_email": "second@example.com",
+        },
+    )
+    response = join_team("Second team", TEST_ATTENDEE_EMAIL)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "This email already belongs to a team."
+
+
 def test_create_duplicate_team_unicode_casefold():
     """casefold-based uniqueness: accented and sharp-s variants collide."""
     create_team("Équipe Alpha")

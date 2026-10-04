@@ -160,6 +160,9 @@
         option.textContent = email;
         emailSelect.appendChild(option);
       });
+      if (emails.length === 1) {
+        emailSelect.value = emails[0];
+      }
       emailSelect.disabled = emails.length === 0;
       if (emails.length === 0) {
         showMessage(window.I18n.t('order.noAttendees'), 'info');
@@ -184,6 +187,12 @@
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
     });
+    orderInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        loadOrderAttendees(orderInput, emailSelect, loadButton);
+      }
+    });
     loadButton.addEventListener('click', () => {
       loadOrderAttendees(orderInput, emailSelect, loadButton);
     });
@@ -202,10 +211,15 @@
     const name = input.value.trim();
     const orderCode = orderInput.value.trim();
     const attendeeEmail = emailSelect.value;
+    const submitButton = document.getElementById('create-submit');
     if (!attendeeEmail) {
       showMessage(window.I18n.t('order.selectAttendee'), 'error');
       return;
     }
+    if (submitButton.disabled) return;
+
+    submitButton.disabled = true;
+    submitButton.textContent = window.I18n.t('action.creating');
     try {
       await window.Api.createTeam(name, orderCode, attendeeEmail);
       showMessage(`Team "${name}" created!`, 'success');
@@ -217,6 +231,9 @@
       await viewTeam(name, orderCode);
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = window.I18n.t('action.create');
     }
   });
 

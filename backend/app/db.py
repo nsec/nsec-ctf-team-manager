@@ -56,6 +56,10 @@ def init_db() -> None:
             UNIQUE (team_id, username_folded)
         );
 
+        -- An attendee email can belong to only one team, not merely appear
+        -- once within each individual team.
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_members_username_folded
+            ON members(username_folded);
         CREATE INDEX IF NOT EXISTS idx_members_team ON members(team_id);
         CREATE INDEX IF NOT EXISTS idx_teams_name_folded ON teams(name_folded);
         """

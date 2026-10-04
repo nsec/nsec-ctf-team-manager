@@ -9,6 +9,7 @@
        the Roboto webfont (same as nsec.io). -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+  <link rel="icon" href="img/favicon.ico" sizes="any" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" />
@@ -17,7 +18,10 @@
 </head>
 <body>
   <header>
-    <h1>NSEC Team Manager</h1>
+    <div class="brand">
+      <span class="brand-logo" role="img" aria-label="NorthSec"></span>
+      <h1>Team Manager</h1>
+    </div>
     <div class="language-control">
       <button id="language-toggle" class="language-toggle" type="button"
               aria-label="Switch to French">
@@ -31,8 +35,6 @@
 
     <!-- Landing: choose an action -->
     <section id="landing" class="card">
-      <h2 data-i18n="landing.title">Welcome!</h2>
-      <p data-i18n="landing.prompt">What would you like to do?</p>
       <div class="actions">
         <button id="btn-show-create" class="btn primary" data-i18n="action.createTeam">Create a team</button>
         <button id="btn-show-join" class="btn" data-i18n="action.joinTeam">Join a team</button>
@@ -55,19 +57,21 @@
           required
           autocomplete="off"
         />
-        <p class="hint" data-i18n="create.maxLengthHint" data-i18n-max="maxTeamNameLength">Maximum length: 128 characters.</p>
+        <p class="hint field-hint-spaced" data-i18n="create.maxLengthHint" data-i18n-max="maxTeamNameLength">Maximum length: 128 characters.</p>
         <label for="create-order-code" data-i18n="form.orderCode">Pretix order code</label>
         <input
           type="text"
           id="create-order-code"
           name="orderCode"
           data-i18n-placeholder="form.orderCodePlaceholder"
+          aria-describedby="create-order-code-hint"
           placeholder="e.g. QHB8A"
           maxlength="64"
           required
           autocomplete="off"
         />
-        <div class="actions">
+        <p id="create-order-code-hint" class="hint" data-i18n="order.codeHelp">Your Pretix order number is the 5 characters in the subject of the email containing your tickets. Look for a subject containing "Your Northsec order".</p>
+        <div class="actions attendee-lookup-actions">
           <button id="create-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
         </div>
         <label for="create-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
@@ -75,7 +79,7 @@
           <option value="" selected disabled data-i18n="order.selectAttendeePlaceholder">Enter an order code and find attendees</option>
         </select>
         <div class="actions">
-          <button type="submit" class="btn primary" data-i18n="action.create">Create</button>
+          <button id="create-submit" type="submit" class="btn primary" data-i18n="action.create">Create</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
         </div>
       </form>
@@ -99,12 +103,14 @@
           id="join-order-code"
           name="orderCode"
           data-i18n-placeholder="form.orderCodePlaceholder"
+          aria-describedby="join-order-code-hint"
           placeholder="e.g. QHB8A"
           maxlength="64"
           required
           autocomplete="off"
         />
-        <div class="actions">
+        <p id="join-order-code-hint" class="hint" data-i18n="order.codeHelp">Your Pretix order number is the 5 characters in the subject of the email containing your tickets. Look for a subject containing "Your Northsec order".</p>
+        <div class="actions attendee-lookup-actions">
           <button id="join-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
         </div>
         <label for="join-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
@@ -133,11 +139,13 @@
           id="verify-order-code"
           name="orderCode"
           data-i18n-placeholder="form.orderCodePlaceholder"
+          aria-describedby="verify-order-code-hint"
           placeholder="e.g. QHB8A"
           maxlength="64"
           required
           autocomplete="off"
         />
+        <p id="verify-order-code-hint" class="hint" data-i18n="order.codeHelp">Your Pretix order number is the 5 characters in the subject of the email containing your tickets. Look for a subject containing "Your Northsec order".</p>
         <div class="actions">
           <button type="submit" class="btn primary" data-i18n="action.verify">Verify</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>

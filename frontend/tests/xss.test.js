@@ -69,7 +69,7 @@ function register(id) {
 }
 
 [
-  'message', 'landing', 'create-team', 'join-team', 'team-view',
+  'message', 'landing', 'create-team', 'join-team', 'team-view', 'create-submit',
   'team-view-name', 'member-count', 'member-list',
 ].forEach(register);
 
@@ -252,9 +252,37 @@ test('order lookup populates attendee email options as text', async () => {
   const select = elements['create-attendee-email'];
   assert.strictEqual(requestedCode, 'QHB8A');
   assert.strictEqual(select.disabled, false);
+  assert.strictEqual(select.value, email);
   assert.strictEqual(select.children[1].value, email);
   assert.strictEqual(select.children[1].textContent, email);
   assert.strictEqual(select.children[1].textContentSetWith, 'textContent');
+});
+
+test('pressing Enter in either order code input loads attendees', async () => {
+  const lookups = [
+    ['create-order-code', 'create-attendee-email'],
+    ['join-order-code', 'join-attendee-email'],
+  ];
+  for (const [orderId, emailId] of lookups) {
+    let requestedCode;
+    window.Api = {
+      loadConfig: async () => {},
+      getOrderAttendees: async (code) => {
+        requestedCode = code;
+        return ['alice@example.com'];
+      },
+    };
+    loadApp();
+    document.getElementById(orderId).value = ' QHB8A ';
+    let defaultPrevented = false;
+    await elements[orderId].on_keydown({
+      key: 'Enter',
+      preventDefault() { defaultPrevented = true; },
+    });
+    assert.strictEqual(defaultPrevented, true);
+    assert.strictEqual(requestedCode, 'QHB8A');
+    assert.strictEqual(elements[emailId].value, 'alice@example.com');
+  }
 });
 
 test('create submission includes order code and selected attendee email', async () => {
@@ -270,6 +298,29 @@ test('create submission includes order code and selected attendee email', async 
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });
   assert.deepStrictEqual(submitted, ['Kernel Panic', 'QHB8A', 'alice@example.com']);
+});
+
+test('create submit button shows pending state and is restored afterward', async () => {
+  let finishCreate;
+  window.Api = {
+    loadConfig: async () => {},
+    createTeam: () => new Promise((resolve) => { finishCreate = resolve; }),
+    verifyTeam: async (name) => ({ name, members: [] }),
+  };
+  loadApp();
+  document.getElementById('create-name').value = 'Kernel Panic';
+  document.getElementById('create-order-code').value = 'QHB8A';
+  document.getElementById('create-attendee-email').value = 'alice@example.com';
+
+  const submitButton = elements['create-submit'];
+  const submission = elements['create-form'].on_submit({ preventDefault() {} });
+  assert.strictEqual(submitButton.disabled, true);
+  assert.strictEqual(submitButton.textContent, 'action.creating');
+
+  finishCreate();
+  await submission;
+  assert.strictEqual(submitButton.disabled, false);
+  assert.strictEqual(submitButton.textContent, 'action.create');
 });
 
 test('join submission includes only order code and selected attendee email', async () => {

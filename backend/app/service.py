@@ -82,7 +82,7 @@ def create_team(name: str, attendee_email: str, order_code: str) -> dict:
 
     conn = get_connection()
     try:
-        conn.execute("BEGIN")
+        conn.execute("BEGIN IMMEDIATE")
         cur = conn.execute(
             "INSERT INTO teams (name, name_folded) VALUES (?, ?)",
             (name, _fold(name)),
@@ -95,8 +95,10 @@ def create_team(name: str, attendee_email: str, order_code: str) -> dict:
             (team_id, attendee_email, _fold(attendee_email), order_code),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as exc:
         conn.rollback()
+        if "members.username_folded" in str(exc):
+            raise TeamError("This email already belongs to a team.", 409) from exc
         raise TeamError("A team with this name already exists.", 409)
     return {"id": team_id, "name": name}
 
@@ -117,24 +119,29 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
     if team is None:
         raise TeamError("No team found with this name.", 404)
 
-    count = conn.execute(
-        "SELECT COUNT(*) FROM members WHERE team_id = ?", (team["id"],)
-    ).fetchone()[0]
-    if count >= settings.max_members_per_team:
-        raise TeamError(
-            f"This team is full (max {settings.max_members_per_team} members).", 409
-        )
-
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        count = conn.execute(
+            "SELECT COUNT(*) FROM members WHERE team_id = ?", (team["id"],)
+        ).fetchone()[0]
+        if count >= settings.max_members_per_team:
+            conn.rollback()
+            raise TeamError(
+                f"This team is full (max {settings.max_members_per_team} members).",
+                409,
+            )
         conn.execute(
             "INSERT INTO members "
             "(team_id, username, username_folded, order_code) "
             "VALUES (?, ?, ?, ?)",
             (team["id"], attendee_email, _fold(attendee_email), order_code),
         )
-    except sqlite3.IntegrityError:
+        conn.commit()
+    except sqlite3.IntegrityError as exc:
         conn.rollback()
-        raise TeamError("You are already a member of this team.", 409)
+        raise TeamError("This email already belongs to a team.", 409) from exc
+    except TeamError:
+        raise
     return {
         "id": team["id"],
         "name": team["name"],
