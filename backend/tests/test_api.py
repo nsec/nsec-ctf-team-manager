@@ -4,18 +4,62 @@ import os
 import sys
 import tempfile
 
+import pytest
+
 # Use a temp DB before importing the app.
 _tmp = tempfile.mkdtemp()
 os.environ["TEAM_MANAGER_DB"] = os.path.join(_tmp, "test.db")
+os.environ["TEAM_MANAGER_LOG_FILE"] = os.path.join(_tmp, "test.log")
+os.environ["TEAM_MANAGER_MAX_MEMBERS"] = "5"
+os.environ["TEAM_MANAGER_MIN_NAME"] = "3"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app import service  # noqa: E402
 from app.db import reset_db  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app)
+TEST_ORDER_CODE = "QHA9N"
+TEST_ATTENDEE_EMAIL = "attendee@example.com"
+
+
+@pytest.fixture(autouse=True)
+def valid_test_ticket(monkeypatch):
+    monkeypatch.setattr(service, "is_valid_order_attendee", lambda *_: True)
+
+
+def create_team(name):
+    return client.post(
+        "/api/teams",
+        json={
+            "name": name,
+            "order_code": TEST_ORDER_CODE,
+            "attendee_email": TEST_ATTENDEE_EMAIL,
+        },
+    )
+
+
+def verify_team(name, order_code=TEST_ORDER_CODE):
+    return client.post(
+        "/api/teams/verify",
+        json={"name": name, "order_code": order_code},
+    )
+
+
+def join_team(
+    name, attendee_email=TEST_ATTENDEE_EMAIL, order_code=TEST_ORDER_CODE
+):
+    return client.post(
+        "/api/teams/join",
+        json={
+            "name": name,
+            "order_code": order_code,
+            "attendee_email": attendee_email,
+        },
+    )
 
 
 def setup_function():
@@ -29,81 +73,192 @@ def test_health():
 
 
 def test_create_team():
-    r = client.post("/api/teams", json={"name": "Kernel Panic"})
+    r = create_team("Kernel Panic")
     assert r.status_code == 201
     assert r.json()["name"] == "Kernel Panic"
 
 
 def test_create_duplicate_team():
-    client.post("/api/teams", json={"name": "Dup"})
-    r = client.post("/api/teams", json={"name": "dup"})  # case-insensitive
+    create_team("Dup")
+    r = create_team("dup")  # case-insensitive
     assert r.status_code == 409
 
 
 def test_create_duplicate_team_unicode_casefold():
     """casefold-based uniqueness: accented and sharp-s variants collide."""
-    client.post("/api/teams", json={"name": "Équipe Alpha"})
-    r = client.post("/api/teams", json={"name": "équipe alpha"})
+    create_team("Équipe Alpha")
+    r = create_team("équipe alpha")
     assert r.status_code == 409
-    client.post("/api/teams", json={"name": "Straße"})
-    r = client.post("/api/teams", json={"name": "STRASSE"})
+    create_team("Straße")
+    r = create_team("STRASSE")
     assert r.status_code == 409
 
 
 def test_create_duplicate_team_accent_insensitive():
     """Accent-insensitive uniqueness: é == e, à == a, etc."""
-    client.post("/api/teams", json={"name": "Équipe Test"})
+    create_team("Équipe Test")
     for variant in ("équipe test", "EQUIPE TEST", "Equipe Test", "equipe test"):
-        r = client.post("/api/teams", json={"name": variant})
+        r = create_team(variant)
         assert r.status_code == 409, variant
-    client.post("/api/teams", json={"name": "À propos"})
-    r = client.post("/api/teams", json={"name": "a propos"})
+    create_team("À propos")
+    r = create_team("a propos")
     assert r.status_code == 409
 
 
-def test_join_team_unicode_username_casefold():
-    """Same username with different case is treated as the same member."""
-    client.post("/api/teams", json={"name": "Fold"})
-    client.post("/api/teams/join", json={"name": "Fold", "username": "Émilie"})
-    r = client.post("/api/teams/join", json={"name": "Fold", "username": "émilie"})
+def test_join_team_duplicate_email_casefold():
+    """The same email with different case is treated as the same member."""
+    create_team("Fold")
+    join_team("Fold", "Émilie@example.com")
+    r = join_team("Fold", "émilie@example.com")
     assert r.status_code == 409
 
 
 def test_create_team_too_short():
-    r = client.post("/api/teams", json={"name": "ab"})
+    r = create_team("ab")
     assert r.status_code == 400
 
 
 def test_join_team():
-    client.post("/api/teams", json={"name": "Joinable"})
-    r = client.post("/api/teams/join", json={"name": "joinable", "username": "alice"})
+    create_team("Joinable")
+    r = join_team("joinable", "second@example.com", "JOIN2")
     assert r.status_code == 200
-    team = client.get("/api/teams/Joinable").json()
-    assert [m["username"] for m in team["members"]] == ["alice"]
+    team = verify_team("Joinable").json()
+    assert [member["attendee_email"] for member in team["members"]] == [
+        TEST_ATTENDEE_EMAIL,
+        "second@example.com",
+    ]
+    assert [member["order_code"] for member in team["members"]] == [
+        TEST_ORDER_CODE,
+        "JOIN2",
+    ]
 
 
 def test_join_nonexistent_team():
-    r = client.post("/api/teams/join", json={"name": "Ghost", "username": "bob"})
+    r = join_team("Ghost")
     assert r.status_code == 404
 
 
 def test_join_twice_rejected():
-    client.post("/api/teams", json={"name": "Once"})
-    client.post("/api/teams/join", json={"name": "Once", "username": "alice"})
-    r = client.post("/api/teams/join", json={"name": "Once", "username": "alice"})
+    create_team("Once")
+    join_team("Once")
+    r = join_team("Once")
     assert r.status_code == 409
 
 
 def test_team_full():
-    client.post("/api/teams", json={"name": "Full"})
-    for i in range(5):  # max_members_per_team default = 5
-        r = client.post("/api/teams/join", json={"name": "Full", "username": f"u{i}"})
+    create_team("Full")
+    for i in range(4):  # Creator is the first member.
+        r = join_team("Full", f"user{i}@example.com")
         assert r.status_code == 200, i
-    r = client.post("/api/teams/join", json={"name": "Full", "username": "extra"})
+    r = join_team("Full", "extra@example.com")
     assert r.status_code == 409
+
+
+def test_team_members_require_matching_order_code():
+    create_team("Verified")
+
+    response = verify_team("Verified", "wrong-code")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Order code does not match a member of this team."
+    }
+
+
+def test_team_members_can_be_verified_case_insensitively():
+    create_team("Verified")
+    join_team("Verified", "second@example.com", "JOIN2")
+
+    response = verify_team("Verified", "join2")
+
+    assert response.status_code == 200
+    assert len(response.json()["members"]) == 2
+
+
+def test_verifying_nonexistent_team_returns_not_found():
+    response = verify_team("Missing")
+
+    assert response.status_code == 404
 
 
 def test_config_endpoint():
     r = client.get("/api/config")
     assert r.status_code == 200
     assert r.json()["maxMembersPerTeam"] == 5
+
+
+def test_order_and_attendee_are_required():
+    response = client.post("/api/teams", json={"name": "Missing Order"})
+    assert response.status_code == 422
+
+
+def test_invalid_order_attendee_does_not_create_team(monkeypatch):
+    monkeypatch.setattr(service, "is_valid_order_attendee", lambda *_: False)
+    response = client.post(
+        "/api/teams",
+        json={
+            "name": "No Ticket",
+            "order_code": "INVALID",
+            "attendee_email": TEST_ATTENDEE_EMAIL,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid order code or attendee email."
+    assert client.get("/api/teams").json() == []
+
+
+def test_invalid_order_attendee_does_not_join_team(monkeypatch):
+    create_team("No Join")
+    monkeypatch.setattr(service, "is_valid_order_attendee", lambda *_: False)
+    response = client.post(
+        "/api/teams/join",
+        json={
+            "name": "No Join",
+            "order_code": "INVALID",
+            "attendee_email": TEST_ATTENDEE_EMAIL,
+        },
+    )
+    assert response.status_code == 400
+    verified = verify_team("No Join", TEST_ORDER_CODE)
+    assert verified.status_code == 200
+    assert len(verified.json()["members"]) == 1
+
+
+def test_order_attendees_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        service, "get_order_attendees", lambda order_code: [TEST_ATTENDEE_EMAIL]
+    )
+
+    response = client.get(f"/api/orders/{TEST_ORDER_CODE}/attendees")
+
+    assert response.status_code == 200
+    assert response.json() == [TEST_ATTENDEE_EMAIL]
+
+
+def test_pretix_unavailable_fails_closed_and_logs_traceback(monkeypatch, caplog):
+    from app.pretix import PretixUnavailableError
+
+    def unavailable(*_):
+        raise PretixUnavailableError("Pretix request timed out.")
+
+    monkeypatch.setattr(service, "is_valid_order_attendee", unavailable)
+    response = client.post(
+        "/api/teams",
+        json={
+            "name": "Unavailable",
+            "order_code": TEST_ORDER_CODE,
+            "attendee_email": TEST_ATTENDEE_EMAIL,
+        },
+    )
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Order validation is temporarily unavailable. Please try again."
+    }
+    record = next(record for record in caplog.records if record.message == "Pretix attendee validation failed.")
+    assert record.exc_info is not None
+    assert "Pretix request timed out." in caplog.text
+    with open(os.environ["TEAM_MANAGER_LOG_FILE"], encoding="utf-8") as log_file:
+        file_log = log_file.read()
+    assert "Pretix attendee validation failed." in file_log
+    assert "Pretix request timed out." in file_log
+    assert client.get("/api/teams").json() == []

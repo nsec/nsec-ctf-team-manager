@@ -36,6 +36,7 @@
       <div class="actions">
         <button id="btn-show-create" class="btn primary" data-i18n="action.createTeam">Create a team</button>
         <button id="btn-show-join" class="btn" data-i18n="action.joinTeam">Join a team</button>
+        <button id="btn-show-verify" class="btn" data-i18n="action.verifyMembers">Verify team members</button>
       </div>
     </section>
 
@@ -55,6 +56,24 @@
           autocomplete="off"
         />
         <p class="hint" data-i18n="create.maxLengthHint" data-i18n-max="maxTeamNameLength">Maximum length: 128 characters.</p>
+        <label for="create-order-code" data-i18n="form.orderCode">Pretix order code</label>
+        <input
+          type="text"
+          id="create-order-code"
+          name="orderCode"
+          data-i18n-placeholder="form.orderCodePlaceholder"
+          placeholder="e.g. QHB8A"
+          maxlength="64"
+          required
+          autocomplete="off"
+        />
+        <div class="actions">
+          <button id="create-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
+        </div>
+        <label for="create-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
+        <select id="create-attendee-email" name="attendeeEmail" required disabled>
+          <option value="" selected disabled data-i18n="order.selectAttendeePlaceholder">Enter an order code and find attendees</option>
+        </select>
         <div class="actions">
           <button type="submit" class="btn primary" data-i18n="action.create">Create</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
@@ -74,20 +93,53 @@
         >
           <option value="" selected disabled data-i18n="join.selectTeamPlaceholder">Select a team</option>
         </select>
-        <label for="join-username" data-i18n="form.username">Your username</label>
+        <label for="join-order-code" data-i18n="form.orderCode">Pretix order code</label>
         <input
           type="text"
-          id="join-username"
-          name="username"
-          data-i18n-placeholder="form.usernamePlaceholder"
-          placeholder="e.g. alice"
+          id="join-order-code"
+          name="orderCode"
+          data-i18n-placeholder="form.orderCodePlaceholder"
+          placeholder="e.g. QHB8A"
           maxlength="64"
           required
           autocomplete="off"
         />
+        <div class="actions">
+          <button id="join-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
+        </div>
+        <label for="join-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
+        <select id="join-attendee-email" name="attendeeEmail" required disabled>
+          <option value="" selected disabled data-i18n="order.selectAttendeePlaceholder">Enter an order code and find attendees</option>
+        </select>
         <p class="hint" data-i18n="join.membersHint" data-i18n-max="maxMembersPerTeam">Teams can have up to 8 members.</p>
         <div class="actions">
           <button type="submit" class="btn primary" data-i18n="action.join">Join</button>
+          <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Verify existing team members -->
+    <section id="verify-team" class="card hidden">
+      <h2 data-i18n="verify.title">Verify team members</h2>
+      <form id="verify-form">
+        <label for="verify-name" data-i18n="form.teamName">Team name</label>
+        <select id="verify-name" name="teamName" required>
+          <option value="" selected disabled data-i18n="join.selectTeamPlaceholder">Select a team</option>
+        </select>
+        <label for="verify-order-code" data-i18n="form.orderCode">Pretix order code</label>
+        <input
+          type="text"
+          id="verify-order-code"
+          name="orderCode"
+          data-i18n-placeholder="form.orderCodePlaceholder"
+          placeholder="e.g. QHB8A"
+          maxlength="64"
+          required
+          autocomplete="off"
+        />
+        <div class="actions">
+          <button type="submit" class="btn primary" data-i18n="action.verify">Verify</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
         </div>
       </form>

@@ -51,6 +51,7 @@ def init_db() -> None:
             team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
             username TEXT NOT NULL,
             username_folded TEXT NOT NULL,
+            order_code TEXT NOT NULL DEFAULT '',
             joined_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE (team_id, username_folded)
         );
@@ -59,6 +60,13 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_teams_name_folded ON teams(name_folded);
         """
     )
+    member_cols = [
+        row[1] for row in conn.execute("PRAGMA table_info(members)").fetchall()
+    ]
+    if "order_code" not in member_cols:
+        conn.execute(
+            "ALTER TABLE members ADD COLUMN order_code TEXT NOT NULL DEFAULT ''"
+        )
 
 
 def reset_db() -> None:

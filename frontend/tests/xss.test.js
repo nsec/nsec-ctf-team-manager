@@ -22,6 +22,7 @@ function makeElement(tag) {
   const el = {
     tag,
     children: [],
+    value: '',
     _textContent: null,
     _innerHTML: null,
     className: '',
@@ -90,15 +91,19 @@ const appSrc = fs.readFileSync(require('path').join(__dirname, '..', 'js', 'app.
 // Evaluate in this context; stubs prevent DOM access errors.
 function loadApp() {
   if (!global.window.I18n) {
-    global.window.I18n = { t: (key) => key };
+    global.window.I18n = {
+      t: (key) => key,
+      translateError: (error) => error.message,
+    };
   }
   if (!global.window.Api) {
     global.window.Api = {
       loadConfig: async () => {},
       createTeam: async () => ({}),
       joinTeam: async () => ({}),
+      getOrderAttendees: async () => [],
       listTeams: async () => [],
-      getTeam: async () => null,
+      verifyTeam: async () => null,
     };
   }
   new Function(appSrc)();
@@ -153,20 +158,24 @@ PAYLOADS.forEach((p) => {
 console.log('renderTeamView uses textContent (no HTML parsing):');
 PAYLOADS.forEach((p) => {
   test(JSON.stringify(p), async () => {
-    const team = { name: p, members: [{ username: p }, { username: 'alice' }] };
+    const team = {
+      name: p,
+      members: [{ attendee_email: p }, { attendee_email: 'alice@example.com' }],
+    };
     // Reset tracking (register elements first via getElementById)
     document.getElementById('team-view-name').textContentSetWith = null;
     document.getElementById('member-list').textContentSetWith = null;
     window.Api = {
       loadConfig: async () => {},
       joinTeam: async () => ({}),
-      getTeam: async () => team,
+      verifyTeam: async () => team,
     };
     // Re-run the app so the join-form submit handler is re-registered.
     loadApp();
     // Drive the join flow: submit -> joinTeam -> viewTeam -> renderTeamView.
     document.getElementById('join-name').value = 'X';
-    document.getElementById('join-username').value = 'bob';
+    document.getElementById('join-order-code').value = 'QHB8A';
+    document.getElementById('join-attendee-email').value = 'bob@example.com';
     await elements['join-form'].on_submit({ preventDefault() {} });
     assert.strictEqual(elements['team-view-name'].textContentSetWith, 'textContent',
       'team name must be set via textContent');
@@ -205,6 +214,81 @@ test('empty team list leaves dropdown disabled and displays a message', async ()
   assert.ok(elements.message.textContent.length > 0);
 });
 
+test('verify action loads team names and submits the order code', async () => {
+  let verified;
+  window.Api = {
+    loadConfig: async () => {},
+    listTeams: async () => [{ name: 'Kernel Panic' }],
+    verifyTeam: async (name, orderCode) => {
+      verified = [name, orderCode];
+      return { name, members: [{ attendee_email: 'alice@example.com' }] };
+    },
+  };
+  loadApp();
+  await elements['btn-show-verify'].on_click();
+  const select = elements['verify-name'];
+  assert.strictEqual(select.disabled, false);
+  assert.strictEqual(select.children[1].textContent, 'Kernel Panic');
+  select.value = 'Kernel Panic';
+  document.getElementById('verify-order-code').value = 'QHB8A';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+  assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
+  assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
+});
+
+test('order lookup populates attendee email options as text', async () => {
+  const email = '<img src=x onerror=alert(1)>';
+  let requestedCode;
+  window.Api = {
+    loadConfig: async () => {},
+    getOrderAttendees: async (code) => {
+      requestedCode = code;
+      return [email];
+    },
+  };
+  loadApp();
+  document.getElementById('create-order-code').value = ' QHB8A ';
+  await elements['create-load-attendees'].on_click();
+  const select = elements['create-attendee-email'];
+  assert.strictEqual(requestedCode, 'QHB8A');
+  assert.strictEqual(select.disabled, false);
+  assert.strictEqual(select.children[1].value, email);
+  assert.strictEqual(select.children[1].textContent, email);
+  assert.strictEqual(select.children[1].textContentSetWith, 'textContent');
+});
+
+test('create submission includes order code and selected attendee email', async () => {
+  let submitted;
+  window.Api = {
+    loadConfig: async () => {},
+    createTeam: async (...args) => { submitted = args; },
+    verifyTeam: async (name) => ({ name, members: [] }),
+  };
+  loadApp();
+  document.getElementById('create-name').value = 'Kernel Panic';
+  document.getElementById('create-order-code').value = 'QHB8A';
+  document.getElementById('create-attendee-email').value = 'alice@example.com';
+  await elements['create-form'].on_submit({ preventDefault() {} });
+  assert.deepStrictEqual(submitted, ['Kernel Panic', 'QHB8A', 'alice@example.com']);
+});
+
+test('join submission includes only order code and selected attendee email', async () => {
+  let submitted;
+  window.Api = {
+    loadConfig: async () => {},
+    joinTeam: async (...args) => { submitted = args; },
+    verifyTeam: async (name) => ({ name, members: [] }),
+  };
+  loadApp();
+  document.getElementById('join-name').value = 'Kernel Panic';
+  document.getElementById('join-order-code').value = 'QHB8A';
+  document.getElementById('join-attendee-email').value = 'alice@example.com';
+  await elements['join-form'].on_submit({ preventDefault() {} });
+  assert.deepStrictEqual(submitted, [
+    'Kernel Panic', 'QHB8A', 'alice@example.com',
+  ]);
+});
+
 console.log('showMessage uses textContent:');
 PAYLOADS.forEach((p) => {
   test(JSON.stringify(p), async () => {
@@ -217,7 +301,8 @@ PAYLOADS.forEach((p) => {
     };
     loadApp();
     document.getElementById('join-name').value = 'X';
-    document.getElementById('join-username').value = 'bob';
+    document.getElementById('join-order-code').value = 'QHB8A';
+    document.getElementById('join-attendee-email').value = 'bob@example.com';
     await elements['join-form'].on_submit({ preventDefault() {} });
     assert.strictEqual(elements['message'].textContentSetWith, 'textContent',
       'error message must be set via textContent');

@@ -1,10 +1,18 @@
 """Team service: business logic for creating and joining teams."""
 
+import logging
 import sqlite3
 import unicodedata
 
 from .config import settings
 from .db import get_connection
+from .pretix import (
+    PretixUnavailableError,
+    get_order_attendees as pretix_order_attendees,
+    is_valid_order_attendee,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class TeamError(Exception):
@@ -14,6 +22,28 @@ class TeamError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def get_order_attendees(order_code: str) -> list[str]:
+    try:
+        return pretix_order_attendees(order_code.strip())
+    except PretixUnavailableError as exc:
+        logger.exception("Pretix attendee lookup failed.")
+        raise TeamError(
+            "Order lookup is temporarily unavailable. Please try again.", 503
+        ) from exc
+
+
+def require_valid_order_attendee(order_code: str, attendee_email: str) -> None:
+    try:
+        valid = is_valid_order_attendee(order_code.strip(), attendee_email.strip())
+    except PretixUnavailableError as exc:
+        logger.exception("Pretix attendee validation failed.")
+        raise TeamError(
+            "Order validation is temporarily unavailable. Please try again.", 503
+        ) from exc
+    if not valid:
+        raise TeamError("Invalid order code or attendee email.")
 
 
 def _normalize(name: str) -> str:
@@ -37,8 +67,10 @@ def _fold(text: str) -> str:
     return without_accents.casefold()
 
 
-def create_team(name: str) -> dict:
+def create_team(name: str, attendee_email: str, order_code: str) -> dict:
     name = _normalize(name)
+    attendee_email = _normalize(attendee_email)
+    order_code = order_code.strip()
     if len(name) < settings.min_team_name_length:
         raise TeamError(
             f"Team name must be at least {settings.min_team_name_length} characters."
@@ -50,22 +82,33 @@ def create_team(name: str) -> dict:
 
     conn = get_connection()
     try:
+        conn.execute("BEGIN")
         cur = conn.execute(
             "INSERT INTO teams (name, name_folded) VALUES (?, ?)",
             (name, _fold(name)),
         )
         team_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO members "
+            "(team_id, username, username_folded, order_code) "
+            "VALUES (?, ?, ?, ?)",
+            (team_id, attendee_email, _fold(attendee_email), order_code),
+        )
+        conn.commit()
     except sqlite3.IntegrityError:
         conn.rollback()
         raise TeamError("A team with this name already exists.", 409)
     return {"id": team_id, "name": name}
 
 
-def join_team(name: str, username: str) -> dict:
+def join_team(name: str, attendee_email: str, order_code: str) -> dict:
     name = _normalize(name)
-    username = _normalize(username)
-    if not username:
-        raise TeamError("Username is required.")
+    attendee_email = _normalize(attendee_email)
+    order_code = order_code.strip()
+    if not attendee_email:
+        raise TeamError("Attendee email is required.")
+    if not order_code:
+        raise TeamError("Order code is required.")
 
     conn = get_connection()
     team = conn.execute(
@@ -84,26 +127,39 @@ def join_team(name: str, username: str) -> dict:
 
     try:
         conn.execute(
-            "INSERT INTO members (team_id, username, username_folded) VALUES (?, ?, ?)",
-            (team["id"], username, _fold(username)),
+            "INSERT INTO members "
+            "(team_id, username, username_folded, order_code) "
+            "VALUES (?, ?, ?, ?)",
+            (team["id"], attendee_email, _fold(attendee_email), order_code),
         )
     except sqlite3.IntegrityError:
         conn.rollback()
         raise TeamError("You are already a member of this team.", 409)
-    return {"id": team["id"], "name": team["name"], "username": username}
+    return {
+        "id": team["id"],
+        "name": team["name"],
+        "attendee_email": attendee_email,
+        "order_code": order_code,
+    }
 
 
-def get_team(name: str) -> dict | None:
+def verify_team_members(name: str, order_code: str) -> dict:
     conn = get_connection()
     team = conn.execute(
         "SELECT id, name FROM teams WHERE name_folded = ?", (_fold(name),)
     ).fetchone()
     if team is None:
-        return None
+        raise TeamError("No team found with this name.", 404)
     members = conn.execute(
-        "SELECT username, joined_at FROM members WHERE team_id = ? ORDER BY joined_at",
+        "SELECT username AS attendee_email, order_code, joined_at FROM members "
+        "WHERE team_id = ? ORDER BY joined_at",
         (team["id"],),
     ).fetchall()
+    if not any(
+        member["order_code"].casefold() == order_code.strip().casefold()
+        for member in members
+    ):
+        raise TeamError("Order code does not match a member of this team.", 403)
     return {
         "id": team["id"],
         "name": team["name"],

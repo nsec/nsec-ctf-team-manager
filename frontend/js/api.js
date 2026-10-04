@@ -40,20 +40,35 @@
       }
     },
 
-    createTeam(name) {
-      return request('POST', '/api/teams', { name });
+    getOrderAttendees(orderCode) {
+      return request('GET', `/api/orders/${encodeURIComponent(orderCode)}/attendees`);
     },
 
-    joinTeam(name, username) {
-      return request('POST', '/api/teams/join', { name, username });
+    createTeam(name, orderCode, attendeeEmail) {
+      return request('POST', '/api/teams', {
+        name,
+        order_code: orderCode,
+        attendee_email: attendeeEmail,
+      });
+    },
+
+    joinTeam(name, orderCode, attendeeEmail) {
+      return request('POST', '/api/teams/join', {
+        name,
+        order_code: orderCode,
+        attendee_email: attendeeEmail,
+      });
     },
 
     listTeams() {
       return request('GET', '/api/teams');
     },
 
-    getTeam(name) {
-      return request('GET', `/api/teams/${encodeURIComponent(name)}`);
+    verifyTeam(name, orderCode) {
+      return request('POST', '/api/teams/verify', {
+        name,
+        order_code: orderCode,
+      });
     },
   };
 })();

@@ -20,7 +20,7 @@
   window.escapeHtml = escapeHtml;
 
   // --- Section management -------------------------------------------------
-  const sections = ['landing', 'create-team', 'join-team', 'team-view'];
+  const sections = ['landing', 'create-team', 'join-team', 'verify-team', 'team-view'];
 
   function show(id) {
     sections.forEach((s) => {
@@ -53,26 +53,26 @@
 
   // --- Team view rendering ------------------------------------------------
   function renderTeamView(team) {
-    // textContent never parses HTML, so team/member names are inert.
+    // textContent never parses HTML, so team names and member emails are inert.
     document.getElementById('team-view-name').textContent = team.name;
     document.getElementById('member-count').textContent = team.members.length;
     const list = document.getElementById('member-list');
     list.textContent = '';
     team.members.forEach((m) => {
       const li = document.createElement('li');
-      li.textContent = m.username;
+      li.textContent = m.attendee_email;
       list.appendChild(li);
     });
     show('team-view');
   }
 
   // --- View team by name (after create/join) ------------------------------
-  async function viewTeam(name) {
+  async function viewTeam(name, orderCode) {
     try {
-      const team = await window.Api.getTeam(name);
+      const team = await window.Api.verifyTeam(name, orderCode);
       renderTeamView(team);
     } catch (err) {
-      showMessage(err.message, 'error');
+      showMessage(window.I18n.translateError(err), 'error');
       show('landing');
     }
   }
@@ -80,7 +80,7 @@
   // --- Navigation buttons -------------------------------------------------
   document.getElementById('btn-show-create').addEventListener('click', () => show('create-team'));
 
-  function resetTeamOptions(select, placeholder) {
+  function resetOptions(select, placeholder) {
     select.textContent = '';
     const option = document.createElement('option');
     option.value = '';
@@ -94,11 +94,11 @@
     show('join-team');
     const select = document.getElementById('join-name');
     select.disabled = true;
-    resetTeamOptions(select, window.I18n.t('join.loadingTeams'));
+    resetOptions(select, window.I18n.t('join.loadingTeams'));
 
     try {
       const teams = await window.Api.listTeams();
-      resetTeamOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      resetOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
       teams.forEach((team) => {
         const option = document.createElement('option');
         option.value = team.name;
@@ -110,9 +110,83 @@
         showMessage(window.I18n.t('join.noTeams'), 'info');
       }
     } catch (err) {
-      resetTeamOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
-      showMessage(err.message, 'error');
+      resetOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      showMessage(window.I18n.translateError(err), 'error');
     }
+  });
+
+  document.getElementById('btn-show-verify').addEventListener('click', async () => {
+    show('verify-team');
+    const select = document.getElementById('verify-name');
+    select.disabled = true;
+    resetOptions(select, window.I18n.t('join.loadingTeams'));
+
+    try {
+      const teams = await window.Api.listTeams();
+      resetOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      teams.forEach((team) => {
+        const option = document.createElement('option');
+        option.value = team.name;
+        option.textContent = team.name;
+        select.appendChild(option);
+      });
+      select.disabled = teams.length === 0;
+      if (teams.length === 0) {
+        showMessage(window.I18n.t('join.noTeams'), 'info');
+      }
+    } catch (err) {
+      resetOptions(select, window.I18n.t('join.selectTeamPlaceholder'));
+      showMessage(window.I18n.translateError(err), 'error');
+    }
+  });
+
+  async function loadOrderAttendees(orderInput, emailSelect, loadButton) {
+    const orderCode = orderInput.value.trim();
+    if (!orderCode) {
+      showMessage(window.I18n.t('order.enterCode'), 'error');
+      return;
+    }
+
+    orderInput.disabled = true;
+    emailSelect.disabled = true;
+    loadButton.disabled = true;
+    resetOptions(emailSelect, window.I18n.t('order.loadingAttendees'));
+    try {
+      const emails = await window.Api.getOrderAttendees(orderCode);
+      resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
+      emails.forEach((email) => {
+        const option = document.createElement('option');
+        option.value = email;
+        option.textContent = email;
+        emailSelect.appendChild(option);
+      });
+      emailSelect.disabled = emails.length === 0;
+      if (emails.length === 0) {
+        showMessage(window.I18n.t('order.noAttendees'), 'info');
+      }
+    } catch (err) {
+      resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
+      showMessage(window.I18n.translateError(err), 'error');
+    } finally {
+      orderInput.disabled = false;
+      loadButton.disabled = false;
+    }
+  }
+
+  [
+    ['create', 'create-order-code', 'create-attendee-email', 'create-load-attendees'],
+    ['join', 'join-order-code', 'join-attendee-email', 'join-load-attendees'],
+  ].forEach(([, orderId, emailId, buttonId]) => {
+    const orderInput = document.getElementById(orderId);
+    const emailSelect = document.getElementById(emailId);
+    const loadButton = document.getElementById(buttonId);
+    orderInput.addEventListener('input', () => {
+      emailSelect.disabled = true;
+      resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
+    });
+    loadButton.addEventListener('click', () => {
+      loadOrderAttendees(orderInput, emailSelect, loadButton);
+    });
   });
 
   document.querySelectorAll('[data-action="back"]').forEach((btn) => {
@@ -123,14 +197,26 @@
   document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('create-name');
+    const orderInput = document.getElementById('create-order-code');
+    const emailSelect = document.getElementById('create-attendee-email');
     const name = input.value.trim();
+    const orderCode = orderInput.value.trim();
+    const attendeeEmail = emailSelect.value;
+    if (!attendeeEmail) {
+      showMessage(window.I18n.t('order.selectAttendee'), 'error');
+      return;
+    }
     try {
-      await window.Api.createTeam(name);
+      await window.Api.createTeam(name, orderCode, attendeeEmail);
       showMessage(`Team "${name}" created!`, 'success');
       input.value = '';
-      viewTeam(name);
+      orderInput.value = '';
+      emailSelect.value = '';
+      emailSelect.disabled = true;
+      resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
+      await viewTeam(name, orderCode);
     } catch (err) {
-      showMessage(err.message, 'error');
+      showMessage(window.I18n.translateError(err), 'error');
     }
   });
 
@@ -138,15 +224,38 @@
   document.getElementById('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('join-name');
+    const orderInput = document.getElementById('join-order-code');
+    const emailSelect = document.getElementById('join-attendee-email');
     const name = input.value.trim();
-    const username = (document.getElementById('join-username') || {}).value || 'you';
+    const orderCode = orderInput.value.trim();
+    const attendeeEmail = emailSelect.value;
+    if (!attendeeEmail) {
+      showMessage(window.I18n.t('order.selectAttendee'), 'error');
+      return;
+    }
     try {
-      await window.Api.joinTeam(name, username.trim());
+      await window.Api.joinTeam(name, orderCode, attendeeEmail);
       showMessage(`Joined team "${name}"!`, 'success');
       input.value = '';
-      viewTeam(name);
+      orderInput.value = '';
+      emailSelect.value = '';
+      emailSelect.disabled = true;
+      resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
+      await viewTeam(name, orderCode);
     } catch (err) {
-      showMessage(err.message, 'error');
+      showMessage(window.I18n.translateError(err), 'error');
+    }
+  });
+
+  document.getElementById('verify-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const teamName = document.getElementById('verify-name').value.trim();
+    const orderCode = document.getElementById('verify-order-code').value.trim();
+    try {
+      const team = await window.Api.verifyTeam(teamName, orderCode);
+      renderTeamView(team);
+    } catch (err) {
+      showMessage(window.I18n.translateError(err), 'error');
     }
   });
 

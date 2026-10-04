@@ -1,6 +1,8 @@
 """FastAPI application: team creation and joining."""
 
+import logging
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,10 +12,22 @@ from fastapi.staticfiles import StaticFiles
 from . import service
 from .config import settings
 from .db import init_db
-from .models import TeamCreateRequest, TeamJoinRequest, TeamOut
+from .models import TeamCreateRequest, TeamJoinRequest, TeamOut, TeamVerifyRequest
 
 # Frontend directory (../../frontend relative to this file).
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+
+app_logger = logging.getLogger("app")
+app_logger.setLevel(logging.INFO)
+log_path = Path(settings.log_file)
+log_path.parent.mkdir(parents=True, exist_ok=True)
+file_handler = RotatingFileHandler(
+    log_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
+)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+)
+app_logger.addHandler(file_handler)
 
 app = FastAPI(
     title="NSEC Team Manager API",
@@ -59,22 +73,26 @@ def list_teams() -> list[dict]:
     return service.list_teams()
 
 
-@app.get("/api/teams/{name}", response_model=TeamOut)
-def get_team(name: str) -> TeamOut:
-    team = service.get_team(name)
-    if team is None:
-        return JSONResponse(status_code=404, content={"detail": "Team not found."})
-    return TeamOut(**team)
+@app.get("/api/orders/{order_code}/attendees")
+def get_order_attendees(order_code: str) -> list[str]:
+    return service.get_order_attendees(order_code)
+
+
+@app.post("/api/teams/verify", response_model=TeamOut)
+def verify_team_members(body: TeamVerifyRequest) -> TeamOut:
+    return TeamOut(**service.verify_team_members(body.name, body.order_code))
 
 
 @app.post("/api/teams", status_code=201)
 def create_team(body: TeamCreateRequest) -> dict:
-    return service.create_team(body.name)
+    service.require_valid_order_attendee(body.order_code, body.attendee_email)
+    return service.create_team(body.name, body.attendee_email, body.order_code)
 
 
 @app.post("/api/teams/join", status_code=200)
 def join_team(body: TeamJoinRequest) -> dict:
-    return service.join_team(body.name, body.username)
+    service.require_valid_order_attendee(body.order_code, body.attendee_email)
+    return service.join_team(body.name, body.attendee_email, body.order_code)
 
 
 # Serve the frontend last so /api/* routes take precedence.

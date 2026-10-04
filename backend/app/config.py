@@ -1,6 +1,19 @@
 """Application configuration, overridable via environment variables."""
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+
+
+def _load_environment(env_file: Path = ENV_FILE) -> None:
+    load_dotenv(env_file)
+
+
+_load_environment()
 
 
 class Settings:
@@ -8,10 +21,16 @@ class Settings:
 
     def __init__(self) -> None:
         self.db_path: str = os.environ.get("TEAM_MANAGER_DB", "team_manager.db")
+        self.log_file: str = os.environ.get("TEAM_MANAGER_LOG_FILE", "team_manager.log")
         # Max members per team — mirrors frontend/js/config.js
         self.max_members_per_team: int = int(os.environ.get("TEAM_MANAGER_MAX_MEMBERS", "5"))
         self.min_team_name_length: int = int(os.environ.get("TEAM_MANAGER_MIN_NAME", "3"))
         self.max_team_name_length: int = int(os.environ.get("TEAM_MANAGER_MAX_NAME", "128"))
+        self.pretix_api_key: str = os.environ.get("PRETIX_API_KEY", "")
+        self.pretix_url: str = os.environ.get(
+            "PRETIX_URL", "https://pretix.eu/api/v1"
+        ).rstrip("/")
+        self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "")
         # CORS origins allowed to call the API (frontend dev server).
         origins = os.environ.get(
             "TEAM_MANAGER_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080"

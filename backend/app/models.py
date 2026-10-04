@@ -5,15 +5,24 @@ from pydantic import BaseModel, Field
 
 class TeamCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128, examples=["Kernel Panic"])
+    order_code: str = Field(min_length=1, max_length=64)
+    attendee_email: str = Field(min_length=1, max_length=320)
 
 
 class TeamJoinRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128, examples=["Kernel Panic"])
-    username: str = Field(min_length=1, max_length=64, examples=["alice"])
+    order_code: str = Field(min_length=1, max_length=64)
+    attendee_email: str = Field(min_length=1, max_length=320)
+
+
+class TeamVerifyRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=128, examples=["Kernel Panic"])
+    order_code: str = Field(min_length=1, max_length=64)
 
 
 class MemberOut(BaseModel):
-    username: str
+    attendee_email: str
+    order_code: str
     joined_at: str
 
 

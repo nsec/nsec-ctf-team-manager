@@ -1,6 +1,8 @@
 team_manager.db*
+backend/team_manager.log*
 __pycache__/
 .pytest_cache/
 *.pyc
 .venv/
 .env
+*.log
