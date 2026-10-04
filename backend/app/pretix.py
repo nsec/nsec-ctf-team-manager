@@ -2,6 +2,8 @@
 
 import json
 import logging
+import threading
+import time
 from collections.abc import Iterator
 from typing import Any
 from urllib.parse import quote, urlencode, urljoin, urlsplit
@@ -11,6 +13,11 @@ import httpx
 from .config import settings
 
 _REQUEST_TIMEOUT_SECONDS = 10
+_RESPONSE_CACHE_TTL_SECONDS = 60
+_RESPONSE_CACHE_MAX_ENTRIES = 256
+_monotonic = time.monotonic
+_response_cache: dict[tuple[str, str], tuple[float, dict | list]] = {}
+_response_cache_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 
@@ -19,12 +26,23 @@ class PretixUnavailableError(Exception):
 
 
 def _get_json(url: str) -> dict | list:
+    api_key = settings.pretix_api_key
+    cache_key = (url, api_key)
+    now = _monotonic()
+    with _response_cache_lock:
+        cached = _response_cache.get(cache_key)
+        if cached is not None:
+            expires_at, payload = cached
+            if expires_at > now:
+                return payload
+            del _response_cache[cache_key]
+
     logger.info("Sending GET request to Pretix endpoint %s", urlsplit(url).path)
     response = httpx.get(
         url,
         headers={
             "Accept": "application/json",
-            "Authorization": f"Token {settings.pretix_api_key}",
+            "Authorization": f"Token {api_key}",
         },
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
@@ -32,6 +50,24 @@ def _get_json(url: str) -> dict | list:
     payload = response.json()
     if not isinstance(payload, (dict, list)):
         raise PretixUnavailableError("Pretix returned an invalid response.")
+
+    with _response_cache_lock:
+        expired_keys = [
+            key for key, (expires_at, _) in _response_cache.items()
+            if expires_at <= now
+        ]
+        for key in expired_keys:
+            del _response_cache[key]
+        if len(_response_cache) >= _RESPONSE_CACHE_MAX_ENTRIES:
+            oldest_key = min(
+                _response_cache,
+                key=lambda key: _response_cache[key][0],
+            )
+            del _response_cache[oldest_key]
+        _response_cache[cache_key] = (
+            _monotonic() + _RESPONSE_CACHE_TTL_SECONDS,
+            payload,
+        )
     return payload
 
 

@@ -9,6 +9,15 @@ import pytest
 from app import pretix
 
 
+@pytest.fixture(autouse=True)
+def clear_response_cache():
+    with pretix._response_cache_lock:
+        pretix._response_cache.clear()
+    yield
+    with pretix._response_cache_lock:
+        pretix._response_cache.clear()
+
+
 @pytest.fixture
 def configured_pretix(monkeypatch):
     monkeypatch.setattr(pretix.settings, "pretix_api_key", "test-key")
@@ -84,6 +93,24 @@ def test_configured_event_path_gets_attendees_without_listing_organizers(
     assert str(requests[0].url).endswith(
         "/organizers/northsec/events/2027/orderpositions/?order=QHB8A"
     )
+
+
+def test_pretix_responses_are_cached_for_60_seconds(
+    monkeypatch, configured_pretix
+):
+    monkeypatch.setattr(pretix.settings, "pretix_ctf_name", "northsec/2027")
+    requests = install_responses(monkeypatch, ticket_found=True)
+    current_time = [100.0]
+    monkeypatch.setattr(pretix, "_monotonic", lambda: current_time[0])
+
+    assert pretix.get_order_attendees("QHB8A") == ["attendee@example.com"]
+    current_time[0] += 59
+    assert pretix.get_order_attendees("QHB8A") == ["attendee@example.com"]
+    assert len(requests) == 1
+
+    current_time[0] += 1
+    assert pretix.get_order_attendees("QHB8A") == ["attendee@example.com"]
+    assert len(requests) == 2
 
 
 def test_unknown_order_has_no_attendees(monkeypatch, configured_pretix):
