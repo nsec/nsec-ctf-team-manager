@@ -30,13 +30,6 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     conn = get_connection()
-    # Schema v2: name_folded/username_folded store str.casefold() values so
-    # uniqueness is Unicode-aware (SQLite NOCASE only folds ASCII, so
-    # "Équipe" vs "équipe" would otherwise both be allowed).
-    # Tiny migration: rebuild tables if the old schema is detected.
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(teams)").fetchall()]
-    if cols and "name_folded" not in cols:
-        conn.executescript("DROP TABLE IF EXISTS members; DROP TABLE IF EXISTS teams;")
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS teams (
@@ -64,13 +57,6 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_teams_name_folded ON teams(name_folded);
         """
     )
-    member_cols = [
-        row[1] for row in conn.execute("PRAGMA table_info(members)").fetchall()
-    ]
-    if "order_code" not in member_cols:
-        conn.execute(
-            "ALTER TABLE members ADD COLUMN order_code TEXT NOT NULL DEFAULT ''"
-        )
 
 
 def reset_db() -> None:
