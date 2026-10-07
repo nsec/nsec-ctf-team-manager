@@ -6,9 +6,21 @@ import tempfile
 
 import pytest
 
-# Use a temp DB before importing the app.
+# Use a dedicated PostgreSQL database before importing the app.
 _tmp = tempfile.mkdtemp()
-os.environ["TEAM_MANAGER_DB"] = os.path.join(_tmp, "test.db")
+os.environ["TEAM_MANAGER_DB_HOST"] = os.environ.get(
+    "TEAM_MANAGER_DB_HOST", "localhost"
+)
+os.environ["TEAM_MANAGER_DB_PORT"] = os.environ.get("TEAM_MANAGER_DB_PORT", "5432")
+os.environ["TEAM_MANAGER_DB_NAME"] = os.environ.get(
+    "TEAM_MANAGER_DB_NAME", "team_manager"
+)
+os.environ["TEAM_MANAGER_DB_USER"] = os.environ.get(
+    "TEAM_MANAGER_DB_USER", "team_manager"
+)
+os.environ["TEAM_MANAGER_DB_PASSWORD"] = os.environ.get(
+    "TEAM_MANAGER_DB_PASSWORD", "team_manager"
+)
 os.environ["TEAM_MANAGER_LOG_FILE"] = os.path.join(_tmp, "test.log")
 os.environ["TEAM_MANAGER_MAX_MEMBERS"] = "5"
 os.environ["TEAM_MANAGER_MIN_NAME"] = "3"

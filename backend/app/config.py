@@ -20,7 +20,11 @@ class Settings:
     """Simple settings object; swap for pydantic-settings later if needed."""
 
     def __init__(self) -> None:
-        self.db_path: str = os.environ.get("TEAM_MANAGER_DB", "team_manager.db")
+        self.db_host: str = os.environ.get("TEAM_MANAGER_DB_HOST", "localhost")
+        self.db_port: int = int(os.environ.get("TEAM_MANAGER_DB_PORT", "5432"))
+        self.db_name: str = os.environ.get("TEAM_MANAGER_DB_NAME", "team_manager")
+        self.db_user: str = os.environ.get("TEAM_MANAGER_DB_USER", "team_manager")
+        self.db_password: str = os.environ.get("TEAM_MANAGER_DB_PASSWORD", "")
         self.log_file: str = os.environ.get("TEAM_MANAGER_LOG_FILE", "team_manager.log")
         # Max members per team — mirrors frontend/js/config.js
         self.max_members_per_team: int = int(os.environ.get("TEAM_MANAGER_MAX_MEMBERS", "8"))

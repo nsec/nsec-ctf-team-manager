@@ -1,8 +1,9 @@
 """Team service: business logic for creating and joining teams."""
 
 import logging
-import sqlite3
 import unicodedata
+
+import psycopg
 
 from .config import settings
 from .db import get_connection
@@ -82,24 +83,27 @@ def create_team(name: str, attendee_email: str, order_code: str) -> dict:
 
     conn = get_connection()
     try:
-        conn.execute("BEGIN IMMEDIATE")
-        cur = conn.execute(
-            "INSERT INTO teams (name, name_folded) VALUES (?, ?)",
-            (name, _fold(name)),
-        )
-        team_id = cur.lastrowid
-        conn.execute(
-            "INSERT INTO members "
-            "(team_id, username, username_folded, order_code) "
-            "VALUES (?, ?, ?, ?)",
-            (team_id, attendee_email, _fold(attendee_email), order_code),
-        )
-        conn.commit()
-    except sqlite3.IntegrityError as exc:
-        conn.rollback()
-        if "members.username_folded" in str(exc):
+        with conn.transaction():
+            cur = conn.execute(
+                "INSERT INTO teams (name, name_folded) VALUES (%s, %s) RETURNING id",
+                (name, _fold(name)),
+            )
+            inserted_team = cur.fetchone()
+            if inserted_team is None:
+                raise RuntimeError("Team insert did not return an id.")
+            team_id = inserted_team[0]
+            conn.execute(
+                "INSERT INTO members "
+                "(team_id, username, username_folded, order_code) "
+                "VALUES (%s, %s, %s, %s)",
+                (team_id, attendee_email, _fold(attendee_email), order_code),
+            )
+    except psycopg.IntegrityError as exc:
+        if exc.diag.constraint_name == "idx_members_username_folded":
             raise TeamError("This email already belongs to a team.", 409) from exc
-        raise TeamError("A team with this name already exists.", 409)
+        if exc.diag.constraint_name == "teams_name_folded_key":
+            raise TeamError("A team with this name already exists.", 409) from exc
+        raise
     return {"id": team_id, "name": name}
 
 
@@ -113,38 +117,42 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
         raise TeamError("Order code is required.")
 
     conn = get_connection()
-    team = conn.execute(
-        "SELECT id, name FROM teams WHERE name_folded = ?", (_fold(name),)
-    ).fetchone()
-    if team is None:
-        raise TeamError("No team found with this name.", 404)
-
     try:
-        conn.execute("BEGIN IMMEDIATE")
-        count = conn.execute(
-            "SELECT COUNT(*) FROM members WHERE team_id = ?", (team["id"],)
-        ).fetchone()[0]
-        if count >= settings.max_members_per_team:
-            conn.rollback()
-            raise TeamError(
-                f"This team is full (max {settings.max_members_per_team} members).",
-                409,
+        with conn.transaction():
+            team = conn.execute(
+                "SELECT id, name FROM teams WHERE name_folded = %s FOR UPDATE",
+                (_fold(name),),
+            ).fetchone()
+            if team is None:
+                raise TeamError("No team found with this name.", 404)
+            count_row = conn.execute(
+                "SELECT COUNT(*) FROM members WHERE team_id = %s",
+                (team[0],),
+            ).fetchone()
+            if count_row is None:
+                raise RuntimeError("Member count query did not return a row.")
+            count = count_row[0]
+            if count >= settings.max_members_per_team:
+                raise TeamError(
+                    f"This team is full (max {settings.max_members_per_team} members).",
+                    409,
+                )
+            conn.execute(
+                "INSERT INTO members "
+                "(team_id, username, username_folded, order_code) "
+                "VALUES (%s, %s, %s, %s)",
+                (team[0], attendee_email, _fold(attendee_email), order_code),
             )
-        conn.execute(
-            "INSERT INTO members "
-            "(team_id, username, username_folded, order_code) "
-            "VALUES (?, ?, ?, ?)",
-            (team["id"], attendee_email, _fold(attendee_email), order_code),
-        )
-        conn.commit()
-    except sqlite3.IntegrityError as exc:
-        conn.rollback()
-        raise TeamError("This email already belongs to a team.", 409) from exc
-    except TeamError:
+    except psycopg.IntegrityError as exc:
+        if exc.diag.constraint_name in {
+            "idx_members_username_folded",
+            "members_team_id_username_folded_key",
+        }:
+            raise TeamError("This email already belongs to a team.", 409) from exc
         raise
     return {
-        "id": team["id"],
-        "name": team["name"],
+        "id": team[0],
+        "name": team[1],
         "attendee_email": attendee_email,
         "order_code": order_code,
     }
@@ -153,24 +161,31 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
 def verify_team_members(name: str, order_code: str) -> dict:
     conn = get_connection()
     team = conn.execute(
-        "SELECT id, name FROM teams WHERE name_folded = ?", (_fold(name),)
+        "SELECT id, name FROM teams WHERE name_folded = %s", (_fold(name),)
     ).fetchone()
     if team is None:
         raise TeamError("No team found with this name.", 404)
     members = conn.execute(
         "SELECT username AS attendee_email, order_code, joined_at FROM members "
-        "WHERE team_id = ? ORDER BY joined_at",
-        (team["id"],),
+        "WHERE team_id = %s ORDER BY joined_at",
+        (team[0],),
     ).fetchall()
     if not any(
-        member["order_code"].casefold() == order_code.strip().casefold()
+        member[1].casefold() == order_code.strip().casefold()
         for member in members
     ):
         raise TeamError("Order code does not match a member of this team.", 403)
     return {
-        "id": team["id"],
-        "name": team["name"],
-        "members": [dict(m) for m in members],
+        "id": team[0],
+        "name": team[1],
+        "members": [
+            {
+                "attendee_email": member[0],
+                "order_code": member[1],
+                "joined_at": member[2],
+            }
+            for member in members
+        ],
         "max_members": settings.max_members_per_team,
     }
 
@@ -178,4 +193,4 @@ def verify_team_members(name: str, order_code: str) -> dict:
 def list_teams() -> list[dict]:
     conn = get_connection()
     rows = conn.execute("SELECT id, name FROM teams ORDER BY name").fetchall()
-    return [dict(r) for r in rows]
+    return [{"id": row[0], "name": row[1]} for row in rows]

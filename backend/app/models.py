@@ -1,5 +1,7 @@
 """Pydantic models for request/response payloads."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -23,7 +25,7 @@ class TeamVerifyRequest(BaseModel):
 class MemberOut(BaseModel):
     attendee_email: str
     order_code: str
-    joined_at: str
+    joined_at: datetime
 
 
 class TeamOut(BaseModel):

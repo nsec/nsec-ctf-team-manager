@@ -1,12 +1,36 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${TEAM_MANAGER_DB_NAME:-team_manager}
+      POSTGRES_USER: ${TEAM_MANAGER_DB_USER:-team_manager}
+      POSTGRES_PASSWORD: ${TEAM_MANAGER_DB_PASSWORD:?Set TEAM_MANAGER_DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
   team-manager:
     image: ghcr.io/nsec/nsec-ctf-team-manager:latest
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      TEAM_MANAGER_DB_HOST: ${TEAM_MANAGER_DB_HOST:-postgres}
+      TEAM_MANAGER_DB_PORT: ${TEAM_MANAGER_DB_PORT:-5432}
+      TEAM_MANAGER_DB_NAME: ${TEAM_MANAGER_DB_NAME:-team_manager}
+      TEAM_MANAGER_DB_USER: ${TEAM_MANAGER_DB_USER:-team_manager}
+      TEAM_MANAGER_DB_PASSWORD: ${TEAM_MANAGER_DB_PASSWORD:?Set TEAM_MANAGER_DB_PASSWORD in .env}
     volumes:
       - team-manager-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
@@ -19,3 +43,4 @@ services:
 
 volumes:
   team-manager-data:
+  postgres-data:

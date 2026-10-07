@@ -4,7 +4,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.22 /uv /uvx /bin/
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TEAM_MANAGER_DB=/data/team_manager.db \
+    TEAM_MANAGER_DB_HOST=postgres \
+    TEAM_MANAGER_DB_PORT=5432 \
+    TEAM_MANAGER_DB_NAME=team_manager \
+    TEAM_MANAGER_DB_USER=team_manager \
     TEAM_MANAGER_LOG_FILE=/data/team_manager.log \
     TEAM_MANAGER_MAX_MEMBERS=8 \
     TEAM_MANAGER_MIN_NAME=1 \

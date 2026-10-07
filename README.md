@@ -1,6 +1,6 @@
 # NSEC Team Manager
 
-Simple CTF team management: FastAPI backend (uv) + SQLite, vanilla JS frontend.
+Simple CTF team management: FastAPI backend (uv) + PostgreSQL, vanilla JS frontend.
 
 ## Structure
 
@@ -9,7 +9,7 @@ backend/          FastAPI app (uv-managed)
   app/
     main.py       Routes + static frontend serving
     service.py    Team business logic
-    db.py         SQLite (sqlite3, WAL, autocommit)
+    db.py         PostgreSQL (psycopg)
     config.py     Env-driven settings
     models.py     Pydantic payloads
   tests/          pytest suite (TestClient)
@@ -32,11 +32,18 @@ API under `/api/*` (same origin, no CORS needed).
 
 ## Run with Docker Compose
 
-Create a `.env` file in the repository root with your Pretix API key and any
-backend settings you want to override:
+Create a `.env` file in the repository root. You can start from
+`backend/.env.example`; replace the example database password before deploying:
 
 ```dotenv
 PRETIX_API_KEY=your-pretix-api-key
+# PostgreSQL credentials (the same user/database are initialized by Compose).
+TEAM_MANAGER_DB_NAME=team_manager
+TEAM_MANAGER_DB_USER=team_manager
+TEAM_MANAGER_DB_PASSWORD=replace-with-a-strong-password
+# Optional destination override; the default host is the Compose service "postgres".
+# TEAM_MANAGER_DB_HOST=postgres
+# TEAM_MANAGER_DB_PORT=5432
 # Optional overrides:
 # PRETIX_URL=https://registrations.nsec.io/api/v1
 # PRETIX_CTF_NAME=nsec/2027
@@ -64,14 +71,20 @@ Errors return `{"detail": "..."}` with 400/404/409.
 
 ## Configuration
 
-Backend (env vars): `TEAM_MANAGER_DB` (default `team_manager.db`),
+Backend (env vars): `TEAM_MANAGER_DB_HOST` (default `localhost`),
+`TEAM_MANAGER_DB_PORT` (5432), `TEAM_MANAGER_DB_NAME` (`team_manager`),
+`TEAM_MANAGER_DB_USER` (`team_manager`), and `TEAM_MANAGER_DB_PASSWORD`
+(required for Compose; empty by default when running directly),
 `TEAM_MANAGER_LOG_FILE` (default `team_manager.log`; rotates at 5 MB and keeps
 three backups),
 `TEAM_MANAGER_MAX_MEMBERS` (5), `TEAM_MANAGER_MIN_NAME` (3),
 `TEAM_MANAGER_MAX_NAME` (32), `TEAM_MANAGER_CORS_ORIGINS`.
-Copy `backend/.env.example` to `backend/.env` to configure these values. The
-backend loads that file on startup regardless of the current working directory;
-variables already set in the process environment take precedence.
+Copy `backend/.env.example` to `backend/.env` to configure local backend
+settings, or to the repository root as `.env` for Docker Compose. Set
+`TEAM_MANAGER_DB_HOST=localhost` when running the backend directly on your
+machine; Compose defaults it to `postgres`. The backend loads `backend/.env`
+on startup regardless of the current working directory; variables already set
+in the process environment take precedence.
 Team creation and joining require a valid Pretix order code and attendee email.
 An attendee email can belong to only one team.
 Configure `PRETIX_API_KEY`, `PRETIX_URL`, and `PRETIX_CTF_NAME` in the backend
