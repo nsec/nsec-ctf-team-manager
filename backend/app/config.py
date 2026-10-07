@@ -23,17 +23,17 @@ class Settings:
         self.db_path: str = os.environ.get("TEAM_MANAGER_DB", "team_manager.db")
         self.log_file: str = os.environ.get("TEAM_MANAGER_LOG_FILE", "team_manager.log")
         # Max members per team — mirrors frontend/js/config.js
-        self.max_members_per_team: int = int(os.environ.get("TEAM_MANAGER_MAX_MEMBERS", "5"))
-        self.min_team_name_length: int = int(os.environ.get("TEAM_MANAGER_MIN_NAME", "3"))
+        self.max_members_per_team: int = int(os.environ.get("TEAM_MANAGER_MAX_MEMBERS", "8"))
+        self.min_team_name_length: int = int(os.environ.get("TEAM_MANAGER_MIN_NAME", "1"))
         self.max_team_name_length: int = int(os.environ.get("TEAM_MANAGER_MAX_NAME", "128"))
-        self.pretix_api_key: str = os.environ.get("PRETIX_API_KEY", "")
+        self.pretix_api_key: str = os.environ.get("PRETIX_API_KEY", "[NOKEY]")
         self.pretix_url: str = os.environ.get(
-            "PRETIX_URL", "https://pretix.eu/api/v1"
+            "PRETIX_URL", "https://https://registrations.nsec.io/api/v1"
         ).rstrip("/")
-        self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "")
+        self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "nsec/2027")
         # CORS origins allowed to call the API (frontend dev server).
         origins = os.environ.get(
-            "TEAM_MANAGER_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080"
+            "TEAM_MANAGER_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,https://nsec-team-manager.nsec.io"
         )
         self.cors_origins: list[str] = [o.strip() for o in origins.split(",") if o.strip()]
 

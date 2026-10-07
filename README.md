@@ -30,6 +30,24 @@ uv run uvicorn app.main:app --port 8000
 Open http://localhost:8000 — the backend serves the frontend at `/` and the
 API under `/api/*` (same origin, no CORS needed).
 
+## Run with Docker Compose
+
+Create a `.env` file in the repository root with your Pretix API key and any
+backend settings you want to override:
+
+```dotenv
+PRETIX_API_KEY=your-pretix-api-key
+# Optional overrides:
+# PRETIX_URL=https://registrations.nsec.io/api/v1
+# PRETIX_CTF_NAME=nsec/2027
+# TEAM_MANAGER_MAX_MEMBERS=8
+# TEAM_MANAGER_MIN_NAME=1
+# TEAM_MANAGER_MAX_NAME=128
+# TEAM_MANAGER_CORS_ORIGINS=https://team-manager.nsec.io
+```
+
+`docker compose up`
+
 ## API
 
 | Method | Path                | Description                                  |
