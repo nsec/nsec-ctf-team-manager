@@ -81,6 +81,18 @@ global.document = {
 };
 
 global.window = {};
+const localStorageValues = new Map();
+global.window.localStorage = {
+  getItem(key) {
+    return localStorageValues.has(key) ? localStorageValues.get(key) : null;
+  },
+  setItem(key, value) {
+    localStorageValues.set(key, String(value));
+  },
+  removeItem(key) {
+    localStorageValues.delete(key);
+  },
+};
 new Function('window',
   fs.readFileSync(require('path').join(__dirname, '..', 'js', 'config.js'), 'utf8')
 )(global.window);
@@ -256,6 +268,34 @@ test('order lookup populates attendee email options as text', async () => {
   assert.strictEqual(select.children[1].value, email);
   assert.strictEqual(select.children[1].textContent, email);
   assert.strictEqual(select.children[1].textContentSetWith, 'textContent');
+});
+
+test('saved order code autofills all three order code inputs', () => {
+  localStorageValues.set('nsec-team-manager-pretix-order-code', 'QHB8A');
+  loadApp();
+  for (const id of ['create-order-code', 'join-order-code', 'verify-order-code']) {
+    assert.strictEqual(elements[id].value, 'QHB8A');
+  }
+});
+
+test('editing an order code syncs and persists all three inputs', () => {
+  localStorageValues.clear();
+  loadApp();
+  const orderIds = ['create-order-code', 'join-order-code', 'verify-order-code'];
+  const source = elements['join-order-code'];
+  source.value = ' NEW42 ';
+  source.on_input();
+  for (const id of orderIds) {
+    assert.strictEqual(elements[id].value, ' NEW42 ');
+  }
+  assert.strictEqual(
+    localStorageValues.get('nsec-team-manager-pretix-order-code'), 'NEW42'
+  );
+
+  source.value = '';
+  source.on_input();
+  assert.strictEqual(localStorageValues.has('nsec-team-manager-pretix-order-code'), false);
+  for (const id of orderIds) assert.strictEqual(elements[id].value, '');
 });
 
 test('pressing Enter in either order code input loads attendees', async () => {

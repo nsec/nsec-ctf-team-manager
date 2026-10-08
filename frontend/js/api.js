@@ -1,6 +1,7 @@
 /*
  * API client for the FastAPI backend.
- * All persistence now goes through the backend; no more localStorage.
+ * Team data persists through the backend; the frontend stores only the
+ * convenience copy of the Pretix order code locally.
  */
 (function () {
   'use strict';

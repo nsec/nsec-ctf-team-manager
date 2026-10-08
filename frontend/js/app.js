@@ -21,6 +21,40 @@
 
   // --- Section management -------------------------------------------------
   const sections = ['landing', 'create-team', 'join-team', 'verify-team', 'team-view'];
+  const orderCodeStorageKey = 'nsec-team-manager-pretix-order-code';
+  const orderCodeInputs = [
+    'create-order-code',
+    'join-order-code',
+    'verify-order-code',
+  ].map((id) => document.getElementById(id));
+
+  function rememberOrderCode(sourceInput) {
+    const orderCode = sourceInput.value;
+    orderCodeInputs.forEach((input) => {
+      if (input !== sourceInput) input.value = orderCode;
+    });
+
+    try {
+      if (orderCode.trim()) {
+        window.localStorage.setItem(orderCodeStorageKey, orderCode.trim());
+      } else {
+        window.localStorage.removeItem(orderCodeStorageKey);
+      }
+    } catch (_) {
+      // Order entry still works when browser storage is unavailable.
+    }
+  }
+
+  try {
+    const savedOrderCode = window.localStorage.getItem(orderCodeStorageKey);
+    if (savedOrderCode) {
+      orderCodeInputs.forEach((input) => {
+        input.value = savedOrderCode;
+      });
+    }
+  } catch (_) {
+    // Order entry still works when browser storage is unavailable.
+  }
 
   function show(id) {
     sections.forEach((s) => {
@@ -184,6 +218,7 @@
     const emailSelect = document.getElementById(emailId);
     const loadButton = document.getElementById(buttonId);
     orderInput.addEventListener('input', () => {
+      rememberOrderCode(orderInput);
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
     });
@@ -198,6 +233,10 @@
     });
   });
 
+  document.getElementById('verify-order-code').addEventListener('input', () => {
+    rememberOrderCode(document.getElementById('verify-order-code'));
+  });
+
   document.querySelectorAll('[data-action="back"]').forEach((btn) => {
     btn.addEventListener('click', () => show('landing'));
   });
@@ -210,6 +249,7 @@
     const emailSelect = document.getElementById('create-attendee-email');
     const name = input.value.trim();
     const orderCode = orderInput.value.trim();
+    rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
     const submitButton = document.getElementById('create-submit');
     if (!attendeeEmail) {
@@ -224,7 +264,6 @@
       await window.Api.createTeam(name, orderCode, attendeeEmail);
       showMessage(`Team "${name}" created!`, 'success');
       input.value = '';
-      orderInput.value = '';
       emailSelect.value = '';
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
@@ -245,6 +284,7 @@
     const emailSelect = document.getElementById('join-attendee-email');
     const name = input.value.trim();
     const orderCode = orderInput.value.trim();
+    rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
     if (!attendeeEmail) {
       showMessage(window.I18n.t('order.selectAttendee'), 'error');
@@ -254,7 +294,6 @@
       await window.Api.joinTeam(name, orderCode, attendeeEmail);
       showMessage(`Joined team "${name}"!`, 'success');
       input.value = '';
-      orderInput.value = '';
       emailSelect.value = '';
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
@@ -268,6 +307,7 @@
     e.preventDefault();
     const teamName = document.getElementById('verify-name').value.trim();
     const orderCode = document.getElementById('verify-order-code').value.trim();
+    rememberOrderCode(document.getElementById('verify-order-code'));
     try {
       const team = await window.Api.verifyTeam(teamName, orderCode);
       renderTeamView(team);
