@@ -1,12 +1,14 @@
 """Pydantic models for request/response payloads."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 class TeamCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128, examples=["Kernel Panic"])
+    ctf_experience: Literal["regular", "ai"] = "regular"
     order_code: str = Field(min_length=1, max_length=64)
     attendee_email: str = Field(min_length=1, max_length=320)
 
@@ -31,6 +33,7 @@ class MemberOut(BaseModel):
 class TeamOut(BaseModel):
     id: int
     name: str
+    ctf_experience: Literal["regular", "ai"]
     members: list[MemberOut]
     max_members: int
 

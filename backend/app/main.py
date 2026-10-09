@@ -86,7 +86,12 @@ def verify_team_members(body: TeamVerifyRequest) -> TeamOut:
 @app.post("/api/teams", status_code=201)
 def create_team(body: TeamCreateRequest) -> dict:
     service.require_valid_order_attendee(body.order_code, body.attendee_email)
-    return service.create_team(body.name, body.attendee_email, body.order_code)
+    return service.create_team(
+        body.name,
+        body.attendee_email,
+        body.order_code,
+        body.ctf_experience,
+    )
 
 
 @app.post("/api/teams/join", status_code=200)

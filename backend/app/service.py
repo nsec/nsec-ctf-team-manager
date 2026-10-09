@@ -68,7 +68,9 @@ def _fold(text: str) -> str:
     return without_accents.casefold()
 
 
-def create_team(name: str, attendee_email: str, order_code: str) -> dict:
+def create_team(
+    name: str, attendee_email: str, order_code: str, ctf_experience: str = "regular"
+) -> dict:
     name = _normalize(name)
     attendee_email = _normalize(attendee_email)
     order_code = order_code.strip()
@@ -85,8 +87,9 @@ def create_team(name: str, attendee_email: str, order_code: str) -> dict:
     try:
         with conn.transaction():
             cur = conn.execute(
-                "INSERT INTO teams (name, name_folded) VALUES (%s, %s) RETURNING id",
-                (name, _fold(name)),
+                "INSERT INTO teams (name, name_folded, ctf_experience) "
+                "VALUES (%s, %s, %s) RETURNING id",
+                (name, _fold(name), ctf_experience),
             )
             inserted_team = cur.fetchone()
             if inserted_team is None:
@@ -104,7 +107,7 @@ def create_team(name: str, attendee_email: str, order_code: str) -> dict:
         if exc.diag.constraint_name == "teams_name_folded_key":
             raise TeamError("A team with this name already exists.", 409) from exc
         raise
-    return {"id": team_id, "name": name}
+    return {"id": team_id, "name": name, "ctf_experience": ctf_experience}
 
 
 def join_team(name: str, attendee_email: str, order_code: str) -> dict:
@@ -161,7 +164,8 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
 def verify_team_members(name: str, order_code: str) -> dict:
     conn = get_connection()
     team = conn.execute(
-        "SELECT id, name FROM teams WHERE name_folded = %s", (_fold(name),)
+        "SELECT id, name, ctf_experience FROM teams WHERE name_folded = %s",
+        (_fold(name),),
     ).fetchone()
     if team is None:
         raise TeamError("No team found with this name.", 404)
@@ -178,6 +182,7 @@ def verify_team_members(name: str, order_code: str) -> dict:
     return {
         "id": team[0],
         "name": team[1],
+        "ctf_experience": team[2],
         "members": [
             {
                 "attendee_email": member[0],
@@ -192,5 +197,10 @@ def verify_team_members(name: str, order_code: str) -> dict:
 
 def list_teams() -> list[dict]:
     conn = get_connection()
-    rows = conn.execute("SELECT id, name FROM teams ORDER BY name").fetchall()
-    return [{"id": row[0], "name": row[1]} for row in rows]
+    rows = conn.execute(
+        "SELECT id, name, ctf_experience FROM teams ORDER BY name"
+    ).fetchall()
+    return [
+        {"id": row[0], "name": row[1], "ctf_experience": row[2]}
+        for row in rows
+    ]

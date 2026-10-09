@@ -219,7 +219,11 @@ select:focus {
 .hint {
   color: var(--text-muted);
   font-size: 0.85rem;
-  margin: 0.5rem 0 0;
+  margin: 0.3rem 0 0;
+}
+
+#hint-link {
+  margin-bottom: 1rem;
 }
 
 .field-hint-spaced {

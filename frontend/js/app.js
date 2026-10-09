@@ -89,6 +89,10 @@
   function renderTeamView(team) {
     // textContent never parses HTML, so team names and member emails are inert.
     document.getElementById('team-view-name').textContent = team.name;
+    const experienceKey = `experience.${team.ctf_experience || 'regular'}`;
+    const experienceEl = document.getElementById('team-view-ctf-experience');
+    experienceEl.dataset.i18n = experienceKey;
+    experienceEl.textContent = window.I18n.t(experienceKey);
     document.getElementById('member-count').textContent = team.members.length;
     const list = document.getElementById('member-list');
     list.textContent = '';
@@ -136,7 +140,8 @@
       teams.forEach((team) => {
         const option = document.createElement('option');
         option.value = team.name;
-        option.textContent = team.name;
+        const experience = team.ctf_experience || 'regular';
+        option.textContent = `${team.name} — ${window.I18n.t(`experience.${experience}`)}`;
         select.appendChild(option);
       });
       select.disabled = teams.length === 0;
@@ -161,7 +166,8 @@
       teams.forEach((team) => {
         const option = document.createElement('option');
         option.value = team.name;
-        option.textContent = team.name;
+        const experience = team.ctf_experience || 'regular';
+        option.textContent = `${team.name} — ${window.I18n.t(`experience.${experience}`)}`;
         select.appendChild(option);
       });
       select.disabled = teams.length === 0;
@@ -245,12 +251,14 @@
   document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('create-name');
+    const experienceSelect = document.getElementById('create-ctf-experience');
     const orderInput = document.getElementById('create-order-code');
     const emailSelect = document.getElementById('create-attendee-email');
     const name = input.value.trim();
     const orderCode = orderInput.value.trim();
     rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
+    const ctfExperience = experienceSelect.value;
     const submitButton = document.getElementById('create-submit');
     if (!attendeeEmail) {
       showMessage(window.I18n.t('order.selectAttendee'), 'error');
@@ -261,9 +269,10 @@
     submitButton.disabled = true;
     submitButton.textContent = window.I18n.t('action.creating');
     try {
-      await window.Api.createTeam(name, orderCode, attendeeEmail);
+      await window.Api.createTeam(name, orderCode, attendeeEmail, ctfExperience);
       showMessage(`Team "${name}" created!`, 'success');
       input.value = '';
+      experienceSelect.value = 'regular';
       emailSelect.value = '';
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));

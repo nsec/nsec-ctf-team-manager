@@ -43,11 +43,12 @@ def valid_test_ticket(monkeypatch):
     monkeypatch.setattr(service, "is_valid_order_attendee", lambda *_: True)
 
 
-def create_team(name):
+def create_team(name, ctf_experience="regular"):
     return client.post(
         "/api/teams",
         json={
             "name": name,
+            "ctf_experience": ctf_experience,
             "order_code": TEST_ORDER_CODE,
             "attendee_email": TEST_ATTENDEE_EMAIL,
         },
@@ -88,6 +89,26 @@ def test_create_team():
     r = create_team("Kernel Panic")
     assert r.status_code == 201
     assert r.json()["name"] == "Kernel Panic"
+    assert r.json()["ctf_experience"] == "regular"
+    team = verify_team("Kernel Panic").json()
+    assert team["ctf_experience"] == "regular"
+    assert client.get("/api/teams").json() == [
+        {"id": r.json()["id"], "name": "Kernel Panic", "ctf_experience": "regular"}
+    ]
+
+
+def test_create_team_with_ai_ctf_experience():
+    response = create_team("AI players", "ai")
+
+    assert response.status_code == 201
+    assert response.json()["ctf_experience"] == "ai"
+    assert verify_team("AI players").json()["ctf_experience"] == "ai"
+
+
+def test_create_team_rejects_unknown_ctf_experience():
+    response = create_team("Invalid choice", "unrestricted")
+
+    assert response.status_code == 422
 
 
 def test_create_duplicate_team():
@@ -102,6 +123,7 @@ def test_email_can_only_belong_to_one_team_when_creating():
         "/api/teams",
         json={
             "name": "Second team",
+            "ctf_experience": "regular",
             "order_code": "OTHER",
             "attendee_email": TEST_ATTENDEE_EMAIL.upper(),
         },

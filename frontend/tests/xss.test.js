@@ -203,7 +203,7 @@ test('team names populate dropdown options as text', async () => {
   const teamName = '<img src=x onerror=alert(1)>';
   window.Api = {
     loadConfig: async () => {},
-    listTeams: async () => [{ id: 1, name: teamName }],
+    listTeams: async () => [{ id: 1, name: teamName, ctf_experience: 'regular' }],
   };
   loadApp();
   await elements['btn-show-join'].on_click();
@@ -211,7 +211,7 @@ test('team names populate dropdown options as text', async () => {
   assert.strictEqual(select.disabled, false);
   assert.strictEqual(select.children.length, 2);
   assert.strictEqual(select.children[1].value, teamName);
-  assert.strictEqual(select.children[1].textContent, teamName);
+  assert.strictEqual(select.children[1].textContent, `${teamName} — experience.regular`);
   assert.strictEqual(select.children[1].textContentSetWith, 'textContent');
 });
 
@@ -230,21 +230,29 @@ test('verify action loads team names and submits the order code', async () => {
   let verified;
   window.Api = {
     loadConfig: async () => {},
-    listTeams: async () => [{ name: 'Kernel Panic' }],
+    listTeams: async () => [{ name: 'Kernel Panic', ctf_experience: 'ai' }],
     verifyTeam: async (name, orderCode) => {
       verified = [name, orderCode];
-      return { name, members: [{ attendee_email: 'alice@example.com' }] };
+      return {
+        name,
+        ctf_experience: 'ai',
+        members: [{ attendee_email: 'alice@example.com' }],
+      };
     },
   };
   loadApp();
   await elements['btn-show-verify'].on_click();
   const select = elements['verify-name'];
   assert.strictEqual(select.disabled, false);
-  assert.strictEqual(select.children[1].textContent, 'Kernel Panic');
+  assert.strictEqual(select.children[1].textContent, 'Kernel Panic — experience.ai');
   select.value = 'Kernel Panic';
   document.getElementById('verify-order-code').value = 'QHB8A';
   await elements['verify-form'].on_submit({ preventDefault() {} });
   assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
+  assert.strictEqual(
+    elements['team-view-ctf-experience'].textContent,
+    'experience.ai'
+  );
   assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
 });
 
@@ -334,10 +342,31 @@ test('create submission includes order code and selected attendee email', async 
   };
   loadApp();
   document.getElementById('create-name').value = 'Kernel Panic';
+  document.getElementById('create-ctf-experience').value = 'regular';
   document.getElementById('create-order-code').value = 'QHB8A';
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });
-  assert.deepStrictEqual(submitted, ['Kernel Panic', 'QHB8A', 'alice@example.com']);
+  assert.deepStrictEqual(submitted, [
+    'Kernel Panic', 'QHB8A', 'alice@example.com', 'regular',
+  ]);
+});
+
+test('create submission includes selected AI CTF experience', async () => {
+  let submitted;
+  window.Api = {
+    loadConfig: async () => {},
+    createTeam: async (...args) => { submitted = args; },
+    verifyTeam: async (name) => ({ name, ctf_experience: 'ai', members: [] }),
+  };
+  loadApp();
+  document.getElementById('create-name').value = 'AI players';
+  document.getElementById('create-ctf-experience').value = 'ai';
+  document.getElementById('create-order-code').value = 'QHB8A';
+  document.getElementById('create-attendee-email').value = 'alice@example.com';
+  await elements['create-form'].on_submit({ preventDefault() {} });
+  assert.deepStrictEqual(submitted, [
+    'AI players', 'QHB8A', 'alice@example.com', 'ai',
+  ]);
 });
 
 test('create submit button shows pending state and is restored afterward', async () => {

@@ -45,9 +45,10 @@
       return request('GET', `/api/orders/${encodeURIComponent(orderCode)}/attendees`);
     },
 
-    createTeam(name, orderCode, attendeeEmail) {
+    createTeam(name, orderCode, attendeeEmail, ctfExperience) {
       return request('POST', '/api/teams', {
         name,
+        ctf_experience: ctfExperience,
         order_code: orderCode,
         attendee_email: attendeeEmail,
       });

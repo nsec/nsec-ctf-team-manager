@@ -58,6 +58,14 @@
           autocomplete="off"
         />
         <p class="hint field-hint-spaced" data-i18n="create.maxLengthHint" data-i18n-max="maxTeamNameLength">Maximum length: 128 characters.</p>
+        <label for="create-ctf-experience" data-i18n="form.ctfExperience">CTF experience</label>
+        <select id="create-ctf-experience" name="ctfExperience" required>
+          <option value="regular" selected data-i18n="experience.regular">Regular CTF (main competition)</option>
+          <option value="ai" data-i18n="experience.ai">AI CTF</option>
+        </select>
+        <p class="hint" data-i18n="experience.regularHelp">Generative AI may not be given challenge context.</p>
+        <p class="hint" data-i18n="experience.aiHelp">Any generative AI is allowed without restrictions.</p>
+        <p class="hint" id="hint-link"><a href="https://nsec.io/competition/#competition-twoctfs" target="_blank" rel="noopener noreferrer" data-i18n="experience.details">Details about the two CTF experiences</a></p>
         <label for="create-order-code" data-i18n="form.orderCode">Pretix order code</label>
         <input
           type="text"
@@ -156,6 +164,7 @@
     <!-- Team view -->
     <section id="team-view" class="card hidden">
       <h2><span data-i18n="team.titlePrefix">Team: </span><span id="team-view-name"></span></h2>
+      <p><strong data-i18n="team.ctfExperience">CTF experience:</strong> <span id="team-view-ctf-experience"></span></p>
       <p id="team-view-role"></p>
       <h3><span data-i18n="team.members">Members</span> (<span id="member-count"></span>/<span data-config="maxMembersPerTeam"></span>)</h3>
       <ul id="member-list" class="member-list"></ul>
