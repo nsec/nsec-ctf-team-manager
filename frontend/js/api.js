@@ -78,5 +78,12 @@
         order_code: orderCode,
       });
     },
+
+    updateTeamExperience(teamId, orderCode, ctfExperience) {
+      return request('PATCH', `/api/teams/${encodeURIComponent(teamId)}/experience`, {
+        order_code: orderCode,
+        ctf_experience: ctfExperience,
+      });
+    },
   };
 })();

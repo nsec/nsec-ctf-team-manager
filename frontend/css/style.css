@@ -192,6 +192,53 @@ label {
   letter-spacing: 0.04em;
 }
 
+.experience-options {
+  min-width: 0;
+  margin: 1rem 0;
+  padding: 0;
+  border: 0;
+}
+
+.experience-options legend {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--nsec-blue);
+}
+
+.experience-options .hint {
+  margin-left: 1.55rem;
+}
+
+.admin-badge {
+  margin-left: 0.5rem;
+  color: var(--nsec-blue);
+  font-size: 0.72em;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+}
+
 select + label,
 input[type="text"] + label {
   margin-top: 1rem;

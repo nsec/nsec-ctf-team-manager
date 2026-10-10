@@ -28,6 +28,7 @@ function makeElement(tag) {
     className: '',
     hidden: false,
     disabled: false,
+    checked: false,
     dataset: {},
     style: {},
     textContentSetWith: null,
@@ -61,8 +62,12 @@ function makeElement(tag) {
           el.hidden = force;
         }
       },
-      add() {},
-      remove() {},
+      add(className) {
+        if (className === 'hidden') el.hidden = true;
+      },
+      remove(className) {
+        if (className === 'hidden') el.hidden = false;
+      },
     },
   };
   return el;
@@ -74,15 +79,42 @@ function register(id) {
   return elements[id];
 }
 
+function descendantText(element) {
+  if (element.children.length === 0) return element.textContent;
+  return element.children.map(descendantText).join('');
+}
+
 [
   'message', 'landing', 'create-team', 'join-team', 'team-view', 'create-submit',
   'team-view-name', 'member-count', 'member-list', 'delete-team',
+  'team-experience-fieldset', 'team-ctf-experience-display',
+  'team-experience-creator-hint',
+  'team-view-ctf-experience', 'team-experience-status',
+  'create-ctf-experience-regular', 'create-ctf-experience-ai',
+  'team-ctf-experience-regular', 'team-ctf-experience-ai',
 ].forEach(register);
+elements['create-ctf-experience-regular'].value = 'regular';
+elements['create-ctf-experience-ai'].value = 'ai';
+elements['team-ctf-experience-regular'].value = 'regular';
+elements['team-ctf-experience-ai'].value = 'ai';
 
 global.document = {
   getElementById: (id) => elements[id] || register(id),
   createElement: (tag) => makeElement(tag),
-  querySelectorAll: () => [],
+  querySelector(selector) {
+    if (selector === 'input[name="createCtfExperience"]:checked') {
+      return ['regular', 'ai']
+        .map((value) => elements[`create-ctf-experience-${value}`])
+        .find((input) => input.checked);
+    }
+    return null;
+  },
+  querySelectorAll(selector) {
+    if (selector === 'input[name="teamCtfExperience"]') {
+      return ['regular', 'ai'].map((value) => elements[`team-ctf-experience-${value}`]);
+    }
+    return [];
+  },
   addEventListener: () => {},
 };
 
@@ -111,7 +143,7 @@ const appSrc = fs.readFileSync(require('path').join(__dirname, '..', 'js', 'app.
 function loadApp() {
   if (!global.window.I18n) {
     global.window.I18n = {
-      t: (key) => key,
+      t: (key) => key === 'team.admin' ? '[Admin]' : key,
       translateError: (error) => error.message,
     };
   }
@@ -123,6 +155,7 @@ function loadApp() {
       getOrderAttendees: async () => [],
       listTeams: async () => [],
       verifyTeam: async () => null,
+      updateTeamExperience: async () => {},
     };
   }
   new Function(appSrc)();
@@ -246,7 +279,7 @@ test('verify action loads team names and submits the order code', async () => {
         name,
         ctf_experience: 'ai',
         is_creator: true,
-        members: [{ attendee_email: 'alice@example.com' }],
+        members: [{ attendee_email: 'alice@example.com', is_creator: true }],
       };
     },
   };
@@ -263,8 +296,62 @@ test('verify action loads team names and submits the order code', async () => {
     elements['team-view-ctf-experience'].textContent,
     'experience.ai'
   );
-  assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
+  assert.strictEqual(elements['team-experience-fieldset'].hidden, false);
+  assert.strictEqual(elements['team-experience-creator-hint'].hidden, true);
+  assert.strictEqual(elements['team-ctf-experience-ai'].checked, true);
+  assert.strictEqual(elements['team-ctf-experience-ai'].disabled, false);
+  assert.strictEqual(descendantText(elements['member-list'].children[0]), 'alice@example.com[Admin]');
   assert.strictEqual(elements['delete-team'].hidden, false);
+});
+
+test('team creator can update CTF experience with radio selection', async () => {
+  let updateArgs;
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name) => ({
+      id: 18,
+      name,
+      ctf_experience: 'regular',
+      members: [{ attendee_email: 'alice@example.com', is_creator: true }],
+      is_creator: true,
+    }),
+    updateTeamExperience: async (...args) => { updateArgs = args; },
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'QHB8A';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+  elements['team-ctf-experience-ai'].checked = true;
+  await elements['team-ctf-experience-ai'].on_change();
+  assert.deepStrictEqual(updateArgs, [18, 'QHB8A', 'ai']);
+  assert.strictEqual(elements['team-view-ctf-experience'].textContent, 'experience.ai');
+  assert.strictEqual(elements['team-experience-status'].textContent, 'experience.saved');
+});
+
+test('non-creator sees disabled experience radios and descriptions', async () => {
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name) => ({
+      id: 19,
+      name,
+      ctf_experience: 'ai',
+      members: [{ attendee_email: 'alice@example.com', is_creator: true }],
+      is_creator: false,
+    }),
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'JOIN2';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+  assert.strictEqual(elements['team-experience-fieldset'].hidden, false);
+  assert.strictEqual(elements['team-experience-creator-hint'].hidden, false);
+  assert.strictEqual(elements['member-list'].children[0].children.length, 2);
+  assert.strictEqual(descendantText(elements['member-list'].children[0]), 'alice@example.com[Admin]');
+  assert.strictEqual(elements['team-ctf-experience-display'].hidden, true);
+  assert.strictEqual(elements['team-view-ctf-experience'].textContent, 'experience.ai');
+  assert.strictEqual(elements['team-ctf-experience-ai'].checked, true);
+  assert.strictEqual(elements['team-ctf-experience-ai'].disabled, true);
+  assert.strictEqual(elements['team-ctf-experience-regular'].disabled, true);
 });
 
 test('creator can delete their team with the verified order code', async () => {
@@ -378,14 +465,14 @@ test('create submission includes order code and selected attendee email', async 
         id: 7,
         name,
         ctf_experience: 'regular',
-        members: [{ attendee_email: 'alice@example.com' }],
+        members: [{ attendee_email: 'alice@example.com', is_creator: true }],
         is_creator: true,
       };
     },
   };
   loadApp();
   document.getElementById('create-name').value = 'Kernel Panic';
-  document.getElementById('create-ctf-experience').value = 'regular';
+  document.getElementById('create-ctf-experience-regular').checked = true;
   document.getElementById('create-order-code').value = 'QHB8A';
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });
@@ -394,7 +481,7 @@ test('create submission includes order code and selected attendee email', async 
   ]);
   assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
   assert.strictEqual(elements['team-view-name'].textContent, 'Kernel Panic');
-  assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
+  assert.strictEqual(descendantText(elements['member-list'].children[0]), 'alice@example.com[Admin]');
   assert.strictEqual(elements['delete-team'].hidden, false);
 });
 
@@ -407,7 +494,8 @@ test('create submission includes selected AI CTF experience', async () => {
   };
   loadApp();
   document.getElementById('create-name').value = 'AI players';
-  document.getElementById('create-ctf-experience').value = 'ai';
+  document.getElementById('create-ctf-experience-ai').checked = true;
+  document.getElementById('create-ctf-experience-regular').checked = false;
   document.getElementById('create-order-code').value = 'QHB8A';
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });

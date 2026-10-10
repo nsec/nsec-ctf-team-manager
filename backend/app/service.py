@@ -191,6 +191,7 @@ def verify_team_members(name: str, order_code: str) -> dict:
                 "attendee_email": member[0],
                 "order_code": member[1],
                 "joined_at": member[2],
+                "is_creator": member[1].casefold() == team[3].casefold(),
             }
             for member in members
         ],
@@ -210,6 +211,25 @@ def delete_team(team_id: int, order_code: str) -> None:
         if team[0].casefold() != order_code.strip().casefold():
             raise TeamError("Only the team creator can delete this team.", 403)
         conn.execute("DELETE FROM teams WHERE id = %s", (team_id,))
+
+
+def update_team_experience(
+    team_id: int, order_code: str, ctf_experience: str
+) -> None:
+    conn = get_connection()
+    with conn.transaction():
+        team = conn.execute(
+            "SELECT creator_order_code FROM teams WHERE id = %s FOR UPDATE",
+            (team_id,),
+        ).fetchone()
+        if team is None:
+            raise TeamError("No team found with this name.", 404)
+        if team[0].casefold() != order_code.strip().casefold():
+            raise TeamError("Only the team creator can change this setting.", 403)
+        conn.execute(
+            "UPDATE teams SET ctf_experience = %s WHERE id = %s",
+            (ctf_experience, team_id),
+        )
 
 
 def list_teams() -> list[dict]:

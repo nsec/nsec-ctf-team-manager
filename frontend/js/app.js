@@ -93,16 +93,35 @@
     currentTeamOrderCode = orderCode;
     // textContent never parses HTML, so team names and member emails are inert.
     document.getElementById('team-view-name').textContent = team.name;
-    const experienceKey = `experience.${team.ctf_experience || 'regular'}`;
-    const experienceEl = document.getElementById('team-view-ctf-experience');
-    experienceEl.dataset.i18n = experienceKey;
-    experienceEl.textContent = window.I18n.t(experienceKey);
+    const experienceFieldset = document.getElementById('team-experience-fieldset');
+    const experienceInputs = document.querySelectorAll('input[name="teamCtfExperience"]');
+    const selectedExperience = team.ctf_experience || 'regular';
+    const experienceDisplay = document.getElementById('team-view-ctf-experience');
+    experienceDisplay.textContent = window.I18n.t(`experience.${selectedExperience}`);
+    experienceInputs.forEach((input) => {
+      input.checked = input.value === selectedExperience;
+      input.disabled = !team.is_creator;
+    });
+    experienceFieldset.classList.remove('hidden');
+    document.getElementById('team-experience-creator-hint').classList.toggle(
+      'hidden', team.is_creator
+    );
+    document.getElementById('team-ctf-experience-display').classList.add('hidden');
+    document.getElementById('team-experience-status').textContent = '';
     document.getElementById('member-count').textContent = team.members.length;
     const list = document.getElementById('member-list');
     list.textContent = '';
     team.members.forEach((m) => {
       const li = document.createElement('li');
-      li.textContent = m.attendee_email;
+      const email = document.createElement('span');
+      email.textContent = m.attendee_email;
+      li.appendChild(email);
+      if (m.is_creator) {
+        const adminBadge = document.createElement('span');
+        adminBadge.className = 'admin-badge';
+        adminBadge.textContent = window.I18n.t('team.admin');
+        li.appendChild(adminBadge);
+      }
       list.appendChild(li);
     });
     document.getElementById('delete-team').classList.toggle('hidden', !team.is_creator);
@@ -256,14 +275,14 @@
   document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('create-name');
-    const experienceSelect = document.getElementById('create-ctf-experience');
+    const experienceInput = document.querySelector('input[name="createCtfExperience"]:checked');
     const orderInput = document.getElementById('create-order-code');
     const emailSelect = document.getElementById('create-attendee-email');
     const name = input.value.trim();
     const orderCode = orderInput.value.trim();
     rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
-    const ctfExperience = experienceSelect.value;
+    const ctfExperience = experienceInput.value;
     const submitButton = document.getElementById('create-submit');
     if (!attendeeEmail) {
       showMessage(window.I18n.t('order.selectAttendee'), 'error');
@@ -277,7 +296,7 @@
       await window.Api.createTeam(name, orderCode, attendeeEmail, ctfExperience);
       showMessage(`Team "${name}" created!`, 'success');
       input.value = '';
-      experienceSelect.value = 'regular';
+      document.getElementById('create-ctf-experience-regular').checked = true;
       emailSelect.value = '';
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
@@ -328,6 +347,34 @@
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
     }
+  });
+
+  document.querySelectorAll('input[name="teamCtfExperience"]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      if (!currentTeam || !currentTeam.is_creator || !input.checked) return;
+      const status = document.getElementById('team-experience-status');
+      const experienceInputs = document.querySelectorAll('input[name="teamCtfExperience"]');
+      experienceInputs.forEach((radio) => { radio.disabled = true; });
+      status.textContent = window.I18n.t('experience.saving');
+      try {
+        await window.Api.updateTeamExperience(
+          currentTeam.id,
+          currentTeamOrderCode,
+          input.value
+        );
+        currentTeam.ctf_experience = input.value;
+        document.getElementById('team-view-ctf-experience').textContent =
+          window.I18n.t(`experience.${input.value}`);
+        status.textContent = window.I18n.t('experience.saved');
+      } catch (err) {
+        experienceInputs.forEach((radio) => {
+          radio.checked = radio.value === currentTeam.ctf_experience;
+        });
+        status.textContent = window.I18n.translateError(err);
+      } finally {
+        experienceInputs.forEach((radio) => { radio.disabled = !currentTeam.is_creator; });
+      }
+    });
   });
 
   document.getElementById('delete-team').addEventListener('click', async () => {

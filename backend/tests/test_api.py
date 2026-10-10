@@ -92,6 +92,7 @@ def test_create_team():
     assert r.json()["ctf_experience"] == "regular"
     team = verify_team("Kernel Panic").json()
     assert team["ctf_experience"] == "regular"
+    assert team["members"][0]["is_creator"] is True
     assert client.get("/api/teams").json() == [
         {"id": r.json()["id"], "name": "Kernel Panic", "ctf_experience": "regular"}
     ]
@@ -103,7 +104,6 @@ def test_create_team_with_ai_ctf_experience():
     assert response.status_code == 201
     assert response.json()["ctf_experience"] == "ai"
     assert verify_team("AI players").json()["ctf_experience"] == "ai"
-
 
 def test_create_team_rejects_unknown_ctf_experience():
     response = create_team("Invalid choice", "unrestricted")
@@ -241,6 +241,8 @@ def test_team_members_can_be_verified_case_insensitively():
     assert response.status_code == 200
     assert len(response.json()["members"]) == 2
     assert response.json()["is_creator"] is False
+    assert response.json()["members"][0]["is_creator"] is True
+    assert response.json()["members"][1]["is_creator"] is False
 
 
 def test_creator_order_code_is_marked_as_team_creator():
@@ -272,6 +274,37 @@ def test_only_team_creator_can_delete_team():
     assert deleted.status_code == 204
     assert client.get("/api/teams").json() == []
     assert verify_team("Delete me").status_code == 404
+
+
+def test_only_team_creator_can_update_ctf_experience():
+    created = create_team("Update experience")
+    team_id = created.json()["id"]
+    join_team("Update experience", "second@example.com", "JOIN2")
+
+    denied = client.patch(
+        f"/api/teams/{team_id}/experience",
+        json={"order_code": "JOIN2", "ctf_experience": "ai"},
+    )
+    assert denied.status_code == 403
+    assert denied.json() == {
+        "detail": "Only the team creator can change this setting."
+    }
+
+    updated = client.patch(
+        f"/api/teams/{team_id}/experience",
+        json={"order_code": TEST_ORDER_CODE, "ctf_experience": "ai"},
+    )
+    assert updated.status_code == 204
+    assert verify_team("Update experience").json()["ctf_experience"] == "ai"
+
+
+def test_experience_update_rejects_unknown_value():
+    created = create_team("Bad experience")
+    response = client.patch(
+        f"/api/teams/{created.json()['id']}/experience",
+        json={"order_code": TEST_ORDER_CODE, "ctf_experience": "unrestricted"},
+    )
+    assert response.status_code == 422
 
 
 def test_verifying_nonexistent_team_returns_not_found():

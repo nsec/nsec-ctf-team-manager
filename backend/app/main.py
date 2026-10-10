@@ -15,6 +15,7 @@ from .db import init_db
 from .models import (
     TeamCreateRequest,
     TeamDeleteRequest,
+    TeamExperienceUpdateRequest,
     TeamJoinRequest,
     TeamOut,
     TeamVerifyRequest,
@@ -44,7 +45,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -92,6 +93,15 @@ def verify_team_members(body: TeamVerifyRequest) -> TeamOut:
 @app.delete("/api/teams/{team_id}", status_code=204)
 def delete_team(team_id: int, body: TeamDeleteRequest) -> None:
     service.delete_team(team_id, body.order_code)
+
+
+@app.patch("/api/teams/{team_id}/experience", status_code=204)
+def update_team_experience(
+    team_id: int, body: TeamExperienceUpdateRequest
+) -> None:
+    service.update_team_experience(
+        team_id, body.order_code, body.ctf_experience
+    )
 
 
 @app.post("/api/teams", status_code=201)
