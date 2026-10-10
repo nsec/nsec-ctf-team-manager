@@ -35,6 +35,7 @@ def init_db() -> None:
             name_folded TEXT NOT NULL,
             ctf_experience TEXT NOT NULL DEFAULT 'regular'
                 CHECK (ctf_experience IN ('regular', 'ai')),
+            creator_order_code TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT teams_name_folded_key UNIQUE (name_folded)
         )
@@ -65,8 +66,6 @@ def init_db() -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_members_team ON members(team_id)"
     )
-
-
 def reset_db() -> None:
     """Drop and recreate all tables (used by tests)."""
     conn = get_connection()

@@ -10,6 +10,8 @@
       'action.joinTeam': 'Join a team',
       'action.verifyMembers': 'Verify team members',
       'action.verify': 'Verify',
+      'action.deleteTeam': 'Delete team',
+      'confirm.deleteTeam': 'Delete team "{name}" and all its members? This cannot be undone.',
       'create.title': 'Create a team',
       'form.teamName': 'Team name',
       'form.ctfExperience': 'CTF experience',
@@ -47,6 +49,7 @@
       'footer': 'Source code',
       'message.teamCreated': 'Team "{name}" created!',
       'message.teamJoined': 'Joined team "{name}"!',
+      'message.teamDeleted': 'Team "{name}" deleted.',
       'error.nameMin': 'Team name must be at least {count} characters.',
       'error.nameMax': 'Team name must be at most {count} characters.',
       'error.duplicate': 'A team with this name already exists.',
@@ -60,6 +63,7 @@
       'error.orderValidationUnavailable': 'Order validation is temporarily unavailable. Please try again.',
       'error.orderLookupUnavailable': 'Order lookup is temporarily unavailable. Please try again.',
       'error.orderCodeMismatch': 'That order code does not match a member of this team.',
+      'error.creatorOnlyDelete': 'Only the team creator can delete this team.',
     },
     fr: {
       'language.switchToFrench': 'Passer la langue en français',
@@ -70,6 +74,8 @@
       'action.joinTeam': 'Rejoindre une équipe',
       'action.verifyMembers': 'Vérifier les membres',
       'action.verify': 'Vérifier',
+      'action.deleteTeam': 'Supprimer l’équipe',
+      'confirm.deleteTeam': 'Supprimer l’équipe « {name} » et tous ses membres ? Cette action est irréversible.',
       'create.title': 'Créer une équipe',
       'form.teamName': "Nom de l’équipe",
       'form.ctfExperience': 'Expérience CTF',
@@ -107,6 +113,7 @@
       'footer': 'Code source',
       'message.teamCreated': 'Équipe « {name} » créée !',
       'message.teamJoined': 'Vous avez rejoint l’équipe « {name} » !',
+      'message.teamDeleted': 'L’équipe « {name} » a été supprimée.',
       'error.nameMin': 'Le nom de l’équipe doit comporter au moins {count} caractères.',
       'error.nameMax': 'Le nom de l’équipe doit comporter au plus {count} caractères.',
       'error.duplicate': 'Une équipe portant ce nom existe déjà.',
@@ -120,6 +127,7 @@
       'error.orderValidationUnavailable': 'La validation de la commande est temporairement indisponible. Veuillez réessayer.',
       'error.orderLookupUnavailable': 'La recherche de commande est temporairement indisponible. Veuillez réessayer.',
       'error.orderCodeMismatch': 'Ce code de commande ne correspond à aucun membre de cette équipe.',
+      'error.creatorOnlyDelete': 'Seul le créateur de l’équipe peut la supprimer.',
     },
   };
 
@@ -167,6 +175,7 @@
         'Order validation is temporarily unavailable. Please try again.': 'error.orderValidationUnavailable',
         'Order lookup is temporarily unavailable. Please try again.': 'error.orderLookupUnavailable',
         'Order code does not match a member of this team.': 'error.orderCodeMismatch',
+        'Only the team creator can delete this team.': 'error.creatorOnlyDelete',
       };
       key = knownErrors[message];
     }

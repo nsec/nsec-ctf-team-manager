@@ -63,7 +63,8 @@ TEAM_MANAGER_DB_PASSWORD=replace-with-a-strong-password
 | GET    | `/api/config`       | Server limits (max members, name lengths)    |
 | GET    | `/api/orders/{order_code}/attendees` | Attendee emails for a Pretix order |
 | GET    | `/api/teams`        | List teams                                   |
-| POST   | `/api/teams/verify` | Request `{name, order_code}`; returns members only when the order code matches |
+| POST   | `/api/teams/verify` | Request `{name, order_code}`; returns members only when the order code matches and identifies the creator |
+| DELETE | `/api/teams/{team_id}` | Request `{order_code}`; deletes the team only when the code belongs to its creator |
 | POST   | `/api/teams`        | Create team `{name, order_code, attendee_email}` |
 | POST   | `/api/teams/join`   | Join team `{name, order_code, attendee_email}` |
 

@@ -21,6 +21,8 @@
 
   // --- Section management -------------------------------------------------
   const sections = ['landing', 'create-team', 'join-team', 'verify-team', 'team-view'];
+  let currentTeam = null;
+  let currentTeamOrderCode = '';
   const orderCodeStorageKey = 'nsec-team-manager-pretix-order-code';
   const orderCodeInputs = [
     'create-order-code',
@@ -86,7 +88,9 @@
   }
 
   // --- Team view rendering ------------------------------------------------
-  function renderTeamView(team) {
+  function renderTeamView(team, orderCode) {
+    currentTeam = team;
+    currentTeamOrderCode = orderCode;
     // textContent never parses HTML, so team names and member emails are inert.
     document.getElementById('team-view-name').textContent = team.name;
     const experienceKey = `experience.${team.ctf_experience || 'regular'}`;
@@ -101,6 +105,7 @@
       li.textContent = m.attendee_email;
       list.appendChild(li);
     });
+    document.getElementById('delete-team').classList.toggle('hidden', !team.is_creator);
     show('team-view');
   }
 
@@ -108,7 +113,7 @@
   async function viewTeam(name, orderCode) {
     try {
       const team = await window.Api.verifyTeam(name, orderCode);
-      renderTeamView(team);
+      renderTeamView(team, orderCode);
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
       show('landing');
@@ -319,9 +324,29 @@
     rememberOrderCode(document.getElementById('verify-order-code'));
     try {
       const team = await window.Api.verifyTeam(teamName, orderCode);
-      renderTeamView(team);
+      renderTeamView(team, orderCode);
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
+    }
+  });
+
+  document.getElementById('delete-team').addEventListener('click', async () => {
+    const teamName = document.getElementById('team-view-name').textContent;
+    if (!currentTeam || !currentTeam.is_creator
+      || !window.confirm(window.I18n.t('confirm.deleteTeam', { name: teamName }))) {
+      return;
+    }
+
+    const button = document.getElementById('delete-team');
+    button.disabled = true;
+    try {
+      await window.Api.deleteTeam(currentTeam.id, currentTeamOrderCode);
+      show('landing');
+      showMessage(window.I18n.t('message.teamDeleted', { name: teamName }), 'success');
+    } catch (err) {
+      showMessage(window.I18n.translateError(err), 'error');
+    } finally {
+      button.disabled = false;
     }
   });
 

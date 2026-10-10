@@ -26,6 +26,8 @@ function makeElement(tag) {
     _textContent: null,
     _innerHTML: null,
     className: '',
+    hidden: false,
+    disabled: false,
     dataset: {},
     style: {},
     textContentSetWith: null,
@@ -54,7 +56,11 @@ function makeElement(tag) {
       this['on_' + ev] = fn;
     },
     classList: {
-      toggle() {},
+      toggle(className, force) {
+        if (className === 'hidden' && force !== undefined) {
+          el.hidden = force;
+        }
+      },
       add() {},
       remove() {},
     },
@@ -70,7 +76,7 @@ function register(id) {
 
 [
   'message', 'landing', 'create-team', 'join-team', 'team-view', 'create-submit',
-  'team-view-name', 'member-count', 'member-list',
+  'team-view-name', 'member-count', 'member-list', 'delete-team',
 ].forEach(register);
 
 global.document = {
@@ -81,6 +87,7 @@ global.document = {
 };
 
 global.window = {};
+global.window.confirm = () => true;
 const localStorageValues = new Map();
 global.window.localStorage = {
   getItem(key) {
@@ -180,7 +187,7 @@ PAYLOADS.forEach((p) => {
     window.Api = {
       loadConfig: async () => {},
       joinTeam: async () => ({}),
-      verifyTeam: async () => team,
+      verifyTeam: async () => ({ ...team, is_creator: false }),
     };
     // Re-run the app so the join-form submit handler is re-registered.
     loadApp();
@@ -195,6 +202,7 @@ PAYLOADS.forEach((p) => {
       'member list must be cleared via textContent');
     // The rendered text must contain the payload as literal text, not markup.
     assert.strictEqual(elements['team-view-name'].textContent, p);
+    assert.strictEqual(elements['delete-team'].hidden, true);
   });
 });
 
@@ -234,8 +242,10 @@ test('verify action loads team names and submits the order code', async () => {
     verifyTeam: async (name, orderCode) => {
       verified = [name, orderCode];
       return {
+        id: 4,
         name,
         ctf_experience: 'ai',
+        is_creator: true,
         members: [{ attendee_email: 'alice@example.com' }],
       };
     },
@@ -254,6 +264,29 @@ test('verify action loads team names and submits the order code', async () => {
     'experience.ai'
   );
   assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
+  assert.strictEqual(elements['delete-team'].hidden, false);
+});
+
+test('creator can delete their team with the verified order code', async () => {
+  let deleted;
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name) => ({
+      id: 42,
+      name,
+      ctf_experience: 'regular',
+      members: [],
+      is_creator: true,
+    }),
+    deleteTeam: async (...args) => { deleted = args; },
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'QHB8A';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+  await elements['delete-team'].on_click();
+  assert.deepStrictEqual(deleted, [42, 'QHB8A']);
+  assert.strictEqual(elements.message.textContent, 'message.teamDeleted');
 });
 
 test('order lookup populates attendee email options as text', async () => {
@@ -335,10 +368,20 @@ test('pressing Enter in either order code input loads attendees', async () => {
 
 test('create submission includes order code and selected attendee email', async () => {
   let submitted;
+  let verified;
   window.Api = {
     loadConfig: async () => {},
     createTeam: async (...args) => { submitted = args; },
-    verifyTeam: async (name) => ({ name, members: [] }),
+    verifyTeam: async (name, orderCode) => {
+      verified = [name, orderCode];
+      return {
+        id: 7,
+        name,
+        ctf_experience: 'regular',
+        members: [{ attendee_email: 'alice@example.com' }],
+        is_creator: true,
+      };
+    },
   };
   loadApp();
   document.getElementById('create-name').value = 'Kernel Panic';
@@ -349,6 +392,10 @@ test('create submission includes order code and selected attendee email', async 
   assert.deepStrictEqual(submitted, [
     'Kernel Panic', 'QHB8A', 'alice@example.com', 'regular',
   ]);
+  assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
+  assert.strictEqual(elements['team-view-name'].textContent, 'Kernel Panic');
+  assert.strictEqual(elements['member-list'].children[0].textContent, 'alice@example.com');
+  assert.strictEqual(elements['delete-team'].hidden, false);
 });
 
 test('create submission includes selected AI CTF experience', async () => {

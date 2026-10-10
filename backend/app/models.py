@@ -24,6 +24,10 @@ class TeamVerifyRequest(BaseModel):
     order_code: str = Field(min_length=1, max_length=64)
 
 
+class TeamDeleteRequest(BaseModel):
+    order_code: str = Field(min_length=1, max_length=64)
+
+
 class MemberOut(BaseModel):
     attendee_email: str
     order_code: str
@@ -36,6 +40,7 @@ class TeamOut(BaseModel):
     ctf_experience: Literal["regular", "ai"]
     members: list[MemberOut]
     max_members: int
+    is_creator: bool
 
 
 class ErrorResponse(BaseModel):

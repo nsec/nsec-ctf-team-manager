@@ -87,9 +87,10 @@ def create_team(
     try:
         with conn.transaction():
             cur = conn.execute(
-                "INSERT INTO teams (name, name_folded, ctf_experience) "
-                "VALUES (%s, %s, %s) RETURNING id",
-                (name, _fold(name), ctf_experience),
+                "INSERT INTO teams "
+                "(name, name_folded, ctf_experience, creator_order_code) "
+                "VALUES (%s, %s, %s, %s) RETURNING id",
+                (name, _fold(name), ctf_experience, order_code),
             )
             inserted_team = cur.fetchone()
             if inserted_team is None:
@@ -164,7 +165,8 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
 def verify_team_members(name: str, order_code: str) -> dict:
     conn = get_connection()
     team = conn.execute(
-        "SELECT id, name, ctf_experience FROM teams WHERE name_folded = %s",
+        "SELECT id, name, ctf_experience, creator_order_code "
+        "FROM teams WHERE name_folded = %s",
         (_fold(name),),
     ).fetchone()
     if team is None:
@@ -183,6 +185,7 @@ def verify_team_members(name: str, order_code: str) -> dict:
         "id": team[0],
         "name": team[1],
         "ctf_experience": team[2],
+        "is_creator": team[3].casefold() == order_code.strip().casefold(),
         "members": [
             {
                 "attendee_email": member[0],
@@ -193,6 +196,20 @@ def verify_team_members(name: str, order_code: str) -> dict:
         ],
         "max_members": settings.max_members_per_team,
     }
+
+
+def delete_team(team_id: int, order_code: str) -> None:
+    conn = get_connection()
+    with conn.transaction():
+        team = conn.execute(
+            "SELECT creator_order_code FROM teams WHERE id = %s FOR UPDATE",
+            (team_id,),
+        ).fetchone()
+        if team is None:
+            raise TeamError("No team found with this name.", 404)
+        if team[0].casefold() != order_code.strip().casefold():
+            raise TeamError("Only the team creator can delete this team.", 403)
+        conn.execute("DELETE FROM teams WHERE id = %s", (team_id,))
 
 
 def list_teams() -> list[dict]:

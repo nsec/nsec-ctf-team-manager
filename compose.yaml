@@ -16,6 +16,10 @@ services:
       start_period: 10s
   team-manager:
     image: ghcr.io/nsec/nsec-ctf-team-manager:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: build
     ports:
       - "8000:8000"
     env_file:

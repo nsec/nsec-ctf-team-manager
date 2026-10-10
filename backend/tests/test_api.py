@@ -240,6 +240,38 @@ def test_team_members_can_be_verified_case_insensitively():
 
     assert response.status_code == 200
     assert len(response.json()["members"]) == 2
+    assert response.json()["is_creator"] is False
+
+
+def test_creator_order_code_is_marked_as_team_creator():
+    create_team("Creator")
+
+    response = verify_team("Creator", TEST_ORDER_CODE.lower())
+
+    assert response.status_code == 200
+    assert response.json()["is_creator"] is True
+
+
+def test_only_team_creator_can_delete_team():
+    created = create_team("Delete me")
+    team_id = created.json()["id"]
+    join_team("Delete me", "second@example.com", "JOIN2")
+
+    not_creator = client.request(
+        "DELETE", f"/api/teams/{team_id}", json={"order_code": "JOIN2"}
+    )
+    assert not_creator.status_code == 403
+    assert not_creator.json() == {
+        "detail": "Only the team creator can delete this team."
+    }
+    assert len(verify_team("Delete me").json()["members"]) == 2
+
+    deleted = client.request(
+        "DELETE", f"/api/teams/{team_id}", json={"order_code": TEST_ORDER_CODE}
+    )
+    assert deleted.status_code == 204
+    assert client.get("/api/teams").json() == []
+    assert verify_team("Delete me").status_code == 404
 
 
 def test_verifying_nonexistent_team_returns_not_found():

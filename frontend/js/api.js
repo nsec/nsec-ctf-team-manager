@@ -72,5 +72,11 @@
         order_code: orderCode,
       });
     },
+
+    deleteTeam(teamId, orderCode) {
+      return request('DELETE', `/api/teams/${encodeURIComponent(teamId)}`, {
+        order_code: orderCode,
+      });
+    },
   };
 })();

@@ -12,7 +12,13 @@ from fastapi.staticfiles import StaticFiles
 from . import service
 from .config import settings
 from .db import init_db
-from .models import TeamCreateRequest, TeamJoinRequest, TeamOut, TeamVerifyRequest
+from .models import (
+    TeamCreateRequest,
+    TeamDeleteRequest,
+    TeamJoinRequest,
+    TeamOut,
+    TeamVerifyRequest,
+)
 
 # Frontend directory (../../frontend relative to this file).
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
@@ -38,7 +44,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -81,6 +87,11 @@ def get_order_attendees(order_code: str) -> list[str]:
 @app.post("/api/teams/verify", response_model=TeamOut)
 def verify_team_members(body: TeamVerifyRequest) -> TeamOut:
     return TeamOut(**service.verify_team_members(body.name, body.order_code))
+
+
+@app.delete("/api/teams/{team_id}", status_code=204)
+def delete_team(team_id: int, body: TeamDeleteRequest) -> None:
+    service.delete_team(team_id, body.order_code)
 
 
 @app.post("/api/teams", status_code=201)
