@@ -98,8 +98,8 @@ def create_team(
             team_id = inserted_team[0]
             conn.execute(
                 "INSERT INTO members "
-                "(team_id, username, username_folded, order_code) "
-                "VALUES (%s, %s, %s, %s)",
+                "(team_id, username, username_folded, order_code, membership_status) "
+                "VALUES (%s, %s, %s, %s, 'approved')",
                 (team_id, attendee_email, _fold(attendee_email), order_code),
             )
     except psycopg.IntegrityError as exc:
@@ -141,12 +141,14 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
                     f"This team is full (max {settings.max_members_per_team} members).",
                     409,
                 )
-            conn.execute(
+            member = conn.execute(
                 "INSERT INTO members "
-                "(team_id, username, username_folded, order_code) "
-                "VALUES (%s, %s, %s, %s)",
+                "(team_id, username, username_folded, order_code, membership_status) "
+                "VALUES (%s, %s, %s, %s, 'pending') RETURNING id",
                 (team[0], attendee_email, _fold(attendee_email), order_code),
-            )
+            ).fetchone()
+            if member is None:
+                raise RuntimeError("Membership request insert did not return an id.")
     except psycopg.IntegrityError as exc:
         if exc.diag.constraint_name in {
             "idx_members_username_folded",
@@ -157,8 +159,9 @@ def join_team(name: str, attendee_email: str, order_code: str) -> dict:
     return {
         "id": team[0],
         "name": team[1],
+        "member_id": member[0],
         "attendee_email": attendee_email,
-        "order_code": order_code,
+        "status": "pending",
     }
 
 
@@ -172,15 +175,18 @@ def verify_team_members(name: str, order_code: str) -> dict:
     if team is None:
         raise TeamError("No team found with this name.", 404)
     members = conn.execute(
-        "SELECT username AS attendee_email, order_code, joined_at FROM members "
-        "WHERE team_id = %s ORDER BY joined_at",
+        "SELECT id, username AS attendee_email, order_code, joined_at, membership_status "
+        "FROM members WHERE team_id = %s ORDER BY joined_at",
         (team[0],),
     ).fetchall()
     if not any(
-        member[1].casefold() == order_code.strip().casefold()
+        member[2].casefold() == order_code.strip().casefold()
+        and member[4] == "approved"
         for member in members
     ):
-        raise TeamError("Order code does not match a member of this team.", 403)
+        raise TeamError("Order code does not match an approved member of this team.", 403)
+    approved_members = [member for member in members if member[4] == "approved"]
+    pending_members = [member for member in members if member[4] == "pending"]
     return {
         "id": team[0],
         "name": team[1],
@@ -188,15 +194,79 @@ def verify_team_members(name: str, order_code: str) -> dict:
         "is_creator": team[3].casefold() == order_code.strip().casefold(),
         "members": [
             {
-                "attendee_email": member[0],
-                "order_code": member[1],
-                "joined_at": member[2],
-                "is_creator": member[1].casefold() == team[3].casefold(),
+                "id": member[0],
+                "attendee_email": member[1],
+                "joined_at": member[3],
+                "is_creator": member[2].casefold() == team[3].casefold(),
             }
-            for member in members
+            for member in approved_members
+        ],
+        "pending_members": [
+            {
+                "id": member[0],
+                "attendee_email": member[1],
+                "joined_at": member[3],
+                "is_creator": False,
+            }
+            for member in pending_members
         ],
         "max_members": settings.max_members_per_team,
     }
+
+
+def _require_approved_member(conn, team_id: int, order_code: str) -> None:
+    member = conn.execute(
+        "SELECT 1 FROM members "
+        "WHERE team_id = %s AND membership_status = 'approved' "
+        "AND lower(order_code) = lower(%s) LIMIT 1",
+        (team_id, order_code.strip()),
+    ).fetchone()
+    if member is None:
+        raise TeamError(
+            "Order code does not match an approved member of this team.", 403
+        )
+
+
+def approve_member(team_id: int, member_id: int, order_code: str) -> None:
+    conn = get_connection()
+    with conn.transaction():
+        team = conn.execute(
+            "SELECT id FROM teams WHERE id = %s FOR UPDATE", (team_id,)
+        ).fetchone()
+        if team is None:
+            raise TeamError("No team found with this name.", 404)
+        _require_approved_member(conn, team_id, order_code)
+        member = conn.execute(
+            "SELECT membership_status FROM members "
+            "WHERE id = %s AND team_id = %s FOR UPDATE",
+            (member_id, team_id),
+        ).fetchone()
+        if member is None or member[0] != "pending":
+            raise TeamError("No pending membership request found.", 404)
+        conn.execute(
+            "UPDATE members SET membership_status = 'approved' "
+            "WHERE id = %s AND team_id = %s",
+            (member_id, team_id),
+        )
+
+
+def reject_member(team_id: int, member_id: int, order_code: str) -> None:
+    conn = get_connection()
+    with conn.transaction():
+        team = conn.execute(
+            "SELECT id FROM teams WHERE id = %s FOR UPDATE", (team_id,)
+        ).fetchone()
+        if team is None:
+            raise TeamError("No team found with this name.", 404)
+        _require_approved_member(conn, team_id, order_code)
+        member = conn.execute(
+            "SELECT membership_status FROM members "
+            "WHERE id = %s AND team_id = %s FOR UPDATE",
+            (member_id, team_id),
+        ).fetchone()
+        if member is None or member[0] != "pending":
+            raise TeamError("No pending membership request found.", 404)
+        conn.execute("DELETE FROM members WHERE id = %s", (member_id,))
 
 
 def delete_team(team_id: int, order_code: str) -> None:

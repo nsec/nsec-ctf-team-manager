@@ -189,6 +189,11 @@
       <p id="team-view-role"></p>
       <h3><span data-i18n="team.members">Members</span> (<span id="member-count"></span>/<span data-config="maxMembersPerTeam"></span>)</h3>
       <ul id="member-list" class="member-list"></ul>
+      <div id="pending-members-section" class="hidden">
+        <h3><span data-i18n="team.pendingMembers">Pending requests</span> (<span id="pending-member-count"></span>)</h3>
+        <p class="hint" data-i18n="team.pendingMembersHint">Any approved team member can approve or reject a request.</p>
+        <ul id="pending-member-list" class="member-list"></ul>
+      </div>
       <div class="actions">
         <button id="delete-team" type="button" class="btn danger hidden" data-i18n="action.deleteTeam">Delete team</button>
         <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>

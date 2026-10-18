@@ -108,7 +108,6 @@
     );
     document.getElementById('team-ctf-experience-display').classList.add('hidden');
     document.getElementById('team-experience-status').textContent = '';
-    document.getElementById('member-count').textContent = team.members.length;
     const list = document.getElementById('member-list');
     list.textContent = '';
     team.members.forEach((m) => {
@@ -124,8 +123,48 @@
       }
       list.appendChild(li);
     });
+    const pendingMembers = team.pending_members || [];
+    document.getElementById('member-count').textContent =
+      team.members.length + pendingMembers.length;
+    document.getElementById('pending-member-count').textContent = pendingMembers.length;
+    const pendingSection = document.getElementById('pending-members-section');
+    const pendingList = document.getElementById('pending-member-list');
+    pendingList.textContent = '';
+    pendingSection.classList.toggle('hidden', pendingMembers.length === 0);
+    pendingMembers.forEach((member) => {
+      const li = document.createElement('li');
+      const email = document.createElement('span');
+      email.textContent = member.attendee_email;
+      li.appendChild(email);
+
+      [['approve', 'action.approve'], ['reject', 'action.reject']].forEach(([decision, label]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = decision === 'reject' ? 'btn danger' : 'btn primary';
+        button.textContent = window.I18n.t(label);
+        button.addEventListener('click', () => decideMember(member.id, decision));
+        li.appendChild(button);
+      });
+      pendingList.appendChild(li);
+    });
     document.getElementById('delete-team').classList.toggle('hidden', !team.is_creator);
     show('team-view');
+  }
+
+  async function decideMember(memberId, decision) {
+    if (!currentTeam) return;
+    try {
+      if (decision === 'approve') {
+        await window.Api.approveMember(currentTeam.id, memberId, currentTeamOrderCode);
+      } else {
+        await window.Api.rejectMember(currentTeam.id, memberId, currentTeamOrderCode);
+      }
+      const updatedTeam = await window.Api.verifyTeam(currentTeam.name, currentTeamOrderCode);
+      renderTeamView(updatedTeam, currentTeamOrderCode);
+      showMessage(window.I18n.t(`message.member${decision === 'approve' ? 'Approved' : 'Rejected'}`), 'success');
+    } catch (err) {
+      showMessage(window.I18n.translateError(err), 'error');
+    }
   }
 
   // --- View team by name (after create/join) ------------------------------
@@ -325,12 +364,12 @@
     }
     try {
       await window.Api.joinTeam(name, orderCode, attendeeEmail);
-      showMessage(`Joined team "${name}"!`, 'success');
       input.value = '';
       emailSelect.value = '';
       emailSelect.disabled = true;
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
-      await viewTeam(name, orderCode);
+      show('landing');
+      showMessage(window.I18n.t('message.joinRequestSubmitted', { name }), 'success');
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
     }

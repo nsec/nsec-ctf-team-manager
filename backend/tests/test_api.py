@@ -75,6 +75,20 @@ def join_team(
     )
 
 
+def approve_member(team_id, member_id, order_code=TEST_ORDER_CODE):
+    return client.post(
+        f"/api/teams/{team_id}/members/{member_id}/approve",
+        json={"order_code": order_code},
+    )
+
+
+def reject_member(team_id, member_id, order_code=TEST_ORDER_CODE):
+    return client.post(
+        f"/api/teams/{team_id}/members/{member_id}/reject",
+        json={"order_code": order_code},
+    )
+
+
 def setup_function():
     reset_db()
 
@@ -186,18 +200,25 @@ def test_create_team_too_short():
 
 
 def test_join_team():
-    create_team("Joinable")
+    created = create_team("Joinable")
     r = join_team("joinable", "second@example.com", "JOIN2")
     assert r.status_code == 200
+    assert r.json()["status"] == "pending"
     team = verify_team("Joinable").json()
+    assert [member["attendee_email"] for member in team["members"]] == [
+        TEST_ATTENDEE_EMAIL,
+    ]
+    assert [member["attendee_email"] for member in team["pending_members"]] == [
+        "second@example.com",
+    ]
+    approved = approve_member(created.json()["id"], r.json()["member_id"])
+    assert approved.status_code == 204
+    team = verify_team("Joinable", "JOIN2").json()
     assert [member["attendee_email"] for member in team["members"]] == [
         TEST_ATTENDEE_EMAIL,
         "second@example.com",
     ]
-    assert [member["order_code"] for member in team["members"]] == [
-        TEST_ORDER_CODE,
-        "JOIN2",
-    ]
+    assert team["pending_members"] == []
 
 
 def test_join_nonexistent_team():
@@ -221,6 +242,50 @@ def test_team_full():
     assert r.status_code == 409
 
 
+def test_any_approved_member_can_approve_and_reject_requests():
+    created = create_team("Team approval")
+    team_id = created.json()["id"]
+    first_request = join_team("Team approval", "first@example.com", "FIRST")
+    assert approve_member(team_id, first_request.json()["member_id"]).status_code == 204
+
+    second_request = join_team("Team approval", "second@example.com", "SECOND")
+    approved_by_member = approve_member(
+        team_id, second_request.json()["member_id"], "FIRST"
+    )
+    assert approved_by_member.status_code == 204
+    assert len(verify_team("Team approval", "SECOND").json()["members"]) == 3
+
+    rejected_request = join_team("Team approval", "third@example.com", "THIRD")
+    rejected = reject_member(team_id, rejected_request.json()["member_id"], "FIRST")
+    assert rejected.status_code == 204
+    assert verify_team("Team approval").json()["pending_members"] == []
+    assert verify_team("Team approval", "THIRD").status_code == 403
+
+
+def test_pending_order_code_cannot_verify_or_approve():
+    created = create_team("Pending proof")
+    request = join_team("Pending proof", "pending@example.com", "PENDING")
+
+    assert verify_team("Pending proof", "PENDING").status_code == 403
+    denied = approve_member(created.json()["id"], request.json()["member_id"], "PENDING")
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == (
+        "Order code does not match an approved member of this team."
+    )
+
+
+def test_only_pending_requests_can_be_decided():
+    created = create_team("One decision")
+    request = join_team("One decision", "once@example.com", "ONCE")
+    team_id = created.json()["id"]
+    member_id = request.json()["member_id"]
+
+    assert approve_member(team_id, member_id).status_code == 204
+    repeated = approve_member(team_id, member_id)
+    assert repeated.status_code == 404
+    assert repeated.json()["detail"] == "No pending membership request found."
+
+
 def test_team_members_require_matching_order_code():
     create_team("Verified")
 
@@ -228,13 +293,16 @@ def test_team_members_require_matching_order_code():
 
     assert response.status_code == 403
     assert response.json() == {
-        "detail": "Order code does not match a member of this team."
+        "detail": "Order code does not match an approved member of this team."
     }
 
 
 def test_team_members_can_be_verified_case_insensitively():
-    create_team("Verified")
-    join_team("Verified", "second@example.com", "JOIN2")
+    created = create_team("Verified")
+    request = join_team("Verified", "second@example.com", "JOIN2")
+    assert approve_member(
+        created.json()["id"], request.json()["member_id"]
+    ).status_code == 204
 
     response = verify_team("Verified", "join2")
 
@@ -257,7 +325,8 @@ def test_creator_order_code_is_marked_as_team_creator():
 def test_only_team_creator_can_delete_team():
     created = create_team("Delete me")
     team_id = created.json()["id"]
-    join_team("Delete me", "second@example.com", "JOIN2")
+    request = join_team("Delete me", "second@example.com", "JOIN2")
+    approve_member(team_id, request.json()["member_id"])
 
     not_creator = client.request(
         "DELETE", f"/api/teams/{team_id}", json={"order_code": "JOIN2"}
@@ -279,7 +348,8 @@ def test_only_team_creator_can_delete_team():
 def test_only_team_creator_can_update_ctf_experience():
     created = create_team("Update experience")
     team_id = created.json()["id"]
-    join_team("Update experience", "second@example.com", "JOIN2")
+    request = join_team("Update experience", "second@example.com", "JOIN2")
+    approve_member(team_id, request.json()["member_id"])
 
     denied = client.patch(
         f"/api/teams/{team_id}/experience",

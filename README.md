@@ -63,11 +63,13 @@ TEAM_MANAGER_DB_PASSWORD=replace-with-a-strong-password
 | GET    | `/api/config`       | Server limits (max members, name lengths)    |
 | GET    | `/api/orders/{order_code}/attendees` | Attendee emails for a Pretix order |
 | GET    | `/api/teams`        | List teams                                   |
-| POST   | `/api/teams/verify` | Request `{name, order_code}`; returns members only when the order code matches and identifies the creator |
+| POST   | `/api/teams/verify` | Request `{name, order_code}`; returns approved members and pending requests only when the order code matches an approved member |
 | DELETE | `/api/teams/{team_id}` | Request `{order_code}`; deletes the team only when the code belongs to its creator |
 | PATCH  | `/api/teams/{team_id}/experience` | Request `{order_code, ctf_experience}`; updates the experience only when the code belongs to its creator |
 | POST   | `/api/teams`        | Create team `{name, order_code, attendee_email}` |
 | POST   | `/api/teams/join`   | Join team `{name, order_code, attendee_email}` |
+| POST   | `/api/teams/{team_id}/members/{member_id}/approve` | Request `{order_code}`; any approved member can approve a pending request |
+| POST   | `/api/teams/{team_id}/members/{member_id}/reject` | Request `{order_code}`; any approved member can reject a pending request |
 
 Errors return `{"detail": "..."}` with 400/404/409.
 
@@ -88,7 +90,9 @@ machine; Compose defaults it to `postgres`. The backend loads `backend/.env`
 on startup regardless of the current working directory; variables already set
 in the process environment take precedence.
 Team creation and joining require a valid Pretix order code and attendee email.
-An attendee email can belong to only one team.
+New join requests remain pending until an existing approved team member approves
+them. Pending requests reserve team capacity, and an attendee email can belong
+to only one team (including while a request is pending).
 Configure `PRETIX_API_KEY`, `PRETIX_URL`, and `PRETIX_CTF_NAME` in the backend
 environment. Set `PRETIX_CTF_NAME` to the event title to discover it by name,
 or to `organizer-slug/event-slug` to address one event directly (for example,

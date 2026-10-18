@@ -85,5 +85,21 @@
         ctf_experience: ctfExperience,
       });
     },
+
+    approveMember(teamId, memberId, orderCode) {
+      return request(
+        'POST',
+        `/api/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(memberId)}/approve`,
+        { order_code: orderCode }
+      );
+    },
+
+    rejectMember(teamId, memberId, orderCode) {
+      return request(
+        'POST',
+        `/api/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(memberId)}/reject`,
+        { order_code: orderCode }
+      );
+    },
   };
 })();

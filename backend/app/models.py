@@ -33,9 +33,13 @@ class TeamExperienceUpdateRequest(BaseModel):
     ctf_experience: Literal["regular", "ai"]
 
 
+class MemberDecisionRequest(BaseModel):
+    order_code: str = Field(min_length=1, max_length=64)
+
+
 class MemberOut(BaseModel):
+    id: int
     attendee_email: str
-    order_code: str
     joined_at: datetime
     is_creator: bool
 
@@ -45,6 +49,7 @@ class TeamOut(BaseModel):
     name: str
     ctf_experience: Literal["regular", "ai"]
     members: list[MemberOut]
+    pending_members: list[MemberOut]
     max_members: int
     is_creator: bool
 

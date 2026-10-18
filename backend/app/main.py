@@ -17,6 +17,7 @@ from .models import (
     TeamDeleteRequest,
     TeamExperienceUpdateRequest,
     TeamJoinRequest,
+    MemberDecisionRequest,
     TeamOut,
     TeamVerifyRequest,
 )
@@ -102,6 +103,20 @@ def update_team_experience(
     service.update_team_experience(
         team_id, body.order_code, body.ctf_experience
     )
+
+
+@app.post("/api/teams/{team_id}/members/{member_id}/approve", status_code=204)
+def approve_member(
+    team_id: int, member_id: int, body: MemberDecisionRequest
+) -> None:
+    service.approve_member(team_id, member_id, body.order_code)
+
+
+@app.post("/api/teams/{team_id}/members/{member_id}/reject", status_code=204)
+def reject_member(
+    team_id: int, member_id: int, body: MemberDecisionRequest
+) -> None:
+    service.reject_member(team_id, member_id, body.order_code)
 
 
 @app.post("/api/teams", status_code=201)

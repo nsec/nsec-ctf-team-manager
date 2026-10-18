@@ -311,12 +311,26 @@ select:focus {
 }
 
 .member-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--border);
   border-left: 4px solid var(--nsec-blue);
   border-radius: var(--radius);
   margin-bottom: 0.5rem;
   background: var(--nsec-white);
+}
+
+.member-list li > span {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.member-list .btn {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.75rem;
 }
 
 footer {

@@ -90,6 +90,7 @@ function descendantText(element) {
   'team-experience-fieldset', 'team-ctf-experience-display',
   'team-experience-creator-hint',
   'team-view-ctf-experience', 'team-experience-status',
+  'pending-members-section', 'pending-member-list', 'pending-member-count',
   'create-ctf-experience-regular', 'create-ctf-experience-ai',
   'team-ctf-experience-regular', 'team-ctf-experience-ai',
 ].forEach(register);
@@ -224,11 +225,10 @@ PAYLOADS.forEach((p) => {
     };
     // Re-run the app so the join-form submit handler is re-registered.
     loadApp();
-    // Drive the join flow: submit -> joinTeam -> viewTeam -> renderTeamView.
-    document.getElementById('join-name').value = 'X';
-    document.getElementById('join-order-code').value = 'QHB8A';
-    document.getElementById('join-attendee-email').value = 'bob@example.com';
-    await elements['join-form'].on_submit({ preventDefault() {} });
+    // Verify a team to drive the rendering path.
+    document.getElementById('verify-name').value = 'X';
+    document.getElementById('verify-order-code').value = 'QHB8A';
+    await elements['verify-form'].on_submit({ preventDefault() {} });
     assert.strictEqual(elements['team-view-name'].textContentSetWith, 'textContent',
       'team name must be set via textContent');
     assert.strictEqual(elements['member-list'].textContentSetWith, 'textContent',
@@ -529,10 +529,11 @@ test('create submit button shows pending state and is restored afterward', async
 
 test('join submission includes only order code and selected attendee email', async () => {
   let submitted;
+  let verificationCount = 0;
   window.Api = {
     loadConfig: async () => {},
     joinTeam: async (...args) => { submitted = args; },
-    verifyTeam: async (name) => ({ name, members: [] }),
+    verifyTeam: async () => { verificationCount++; },
   };
   loadApp();
   document.getElementById('join-name').value = 'Kernel Panic';
@@ -542,6 +543,41 @@ test('join submission includes only order code and selected attendee email', asy
   assert.deepStrictEqual(submitted, [
     'Kernel Panic', 'QHB8A', 'alice@example.com',
   ]);
+  assert.strictEqual(verificationCount, 0, 'pending applicant must not enter team view');
+  assert.strictEqual(elements.message.textContent, 'message.joinRequestSubmitted');
+});
+
+test('any verified team member can approve a pending request', async () => {
+  let approved;
+  let verificationCount = 0;
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name, orderCode) => {
+      verificationCount++;
+      return {
+        id: 55,
+        name,
+        ctf_experience: 'regular',
+        is_creator: false,
+        members: [{ id: 1, attendee_email: 'alice@example.com', is_creator: true }],
+        pending_members: verificationCount === 1
+          ? [{ id: 2, attendee_email: 'bob@example.com' }]
+          : [],
+      };
+    },
+    approveMember: async (...args) => { approved = args; },
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'JOIN2';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+
+  const pendingItem = elements['pending-member-list'].children[0];
+  assert.strictEqual(descendantText(pendingItem.children[0]), 'bob@example.com');
+  await pendingItem.children[1].on_click();
+  assert.deepStrictEqual(approved, [55, 2, 'JOIN2']);
+  assert.strictEqual(verificationCount, 2);
+  assert.strictEqual(elements['pending-members-section'].hidden, true);
 });
 
 console.log('showMessage uses textContent:');

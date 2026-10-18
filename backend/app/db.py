@@ -49,6 +49,8 @@ def init_db() -> None:
             username TEXT NOT NULL,
             username_folded TEXT NOT NULL,
             order_code TEXT NOT NULL DEFAULT '',
+            membership_status TEXT NOT NULL DEFAULT 'pending'
+                CHECK (membership_status IN ('pending', 'approved')),
             joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT members_team_id_username_folded_key
                 UNIQUE (team_id, username_folded)
