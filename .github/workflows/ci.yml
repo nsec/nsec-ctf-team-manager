@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: Backend tests (pytest)
+    name: Backend tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -49,7 +49,7 @@ jobs:
         run: uv run pytest tests/ -v
 
   frontend:
-    name: Frontend tests (XSS regression)
+    name: Frontend tests
     runs-on: ubuntu-latest
     defaults:
       run:
