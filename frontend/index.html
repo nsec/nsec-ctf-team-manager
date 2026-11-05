@@ -64,7 +64,10 @@
             <input type="radio" id="create-ctf-experience-regular" name="createCtfExperience" value="regular" checked required />
             <span data-i18n="experience.regular">Regular CTF</span>
           </label>
-          <p class="hint" data-i18n="experience.regularHelp">Generative AI may not be given challenge context.</p>
+          <p class="hint">
+            <strong data-i18n="experience.recommended"></strong>
+            <span data-i18n="experience.regularHelp"></span>
+          </p>
           <label class="radio-option" for="create-ctf-experience-ai">
             <input type="radio" id="create-ctf-experience-ai" name="createCtfExperience" value="ai" required />
             <span data-i18n="experience.ai">AI CTF</span>
@@ -178,7 +181,10 @@
           <input type="radio" id="team-ctf-experience-regular" name="teamCtfExperience" value="regular" />
           <span data-i18n="experience.regular">Regular CTF</span>
         </label>
-        <p class="hint" data-i18n="experience.regularHelp">Generative AI may not be given challenge context.</p>
+        <p class="hint">
+          <strong data-i18n="experience.recommended"></strong>
+          <span data-i18n="experience.regularHelp"></span>
+        </p>
         <label class="radio-option" for="team-ctf-experience-ai">
           <input type="radio" id="team-ctf-experience-ai" name="teamCtfExperience" value="ai" />
           <span data-i18n="experience.ai">AI CTF</span>
@@ -202,7 +208,10 @@
   </main>
 
   <footer>
-    <p><a href="https://github.com/nsec/nsec-ctf-team-manager" target="_blank" rel="noopener noreferrer" data-i18n="footer">Source code</a></p>
+    <p>
+      <a href="https://github.com/nsec/nsec-ctf-team-manager" target="_blank" rel="noopener noreferrer" data-i18n="footer">Source code</a>
+      <span> | Question? <a href="mailto:ctf@nsec.io">ctf@nsec.io</a></span>
+    </p>
   </footer>
 
   <script src="js/config.js"></script>
