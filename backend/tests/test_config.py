@@ -33,3 +33,11 @@ def test_database_connection_settings(monkeypatch):
     assert settings.db_name == "teams"
     assert settings.db_user == "teams_app"
     assert settings.db_password == "secret"
+
+
+def test_default_cors_origins_include_ipv6_loopback(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("TEAM_MANAGER_CORS_ORIGINS", raising=False)
+
+    assert "http://[::1]:8080" in Settings().cors_origins

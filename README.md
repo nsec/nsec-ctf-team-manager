@@ -24,16 +24,17 @@ frontend/         Vanilla HTML/CSS/JS (no framework)
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:app --port 8000
+uv run python -m app.server
 ```
 
-Open http://localhost:8000 — the backend serves the frontend at `/` and the
-API under `/api/*` (same origin, no CORS needed).
+The server listens on IPv4 and IPv6 port 8000 (when IPv6 is enabled by the
+operating system). Open `http://localhost:8000` — the backend serves the
+frontend at `/` and the API under `/api/*` (same origin, no CORS needed).
 
 ## Run with Docker Compose
 
 Create a `.env` file in the repository root. You can start from
-`backend/.env.example`; replace the example database password before deploying:
+`.env.example`; replace the example database password before deploying:
 
 ```dotenv
 PRETIX_API_KEY=your-pretix-api-key
@@ -83,7 +84,7 @@ Backend (env vars): `TEAM_MANAGER_DB_HOST` (default `localhost`),
 three backups),
 `TEAM_MANAGER_MAX_MEMBERS` (5), `TEAM_MANAGER_MIN_NAME` (3),
 `TEAM_MANAGER_MAX_NAME` (32), `TEAM_MANAGER_CORS_ORIGINS`.
-Copy `backend/.env.example` to `backend/.env` to configure local backend
+Copy `.env.example` to `.env` to configure local backend
 settings, or to the repository root as `.env` for Docker Compose. Set
 `TEAM_MANAGER_DB_HOST=localhost` when running the backend directly on your
 machine; Compose defaults it to `postgres`. The backend loads `backend/.env`

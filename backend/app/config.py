@@ -37,7 +37,8 @@ class Settings:
         self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "nsec/2027")
         # CORS origins allowed to call the API (frontend dev server).
         origins = os.environ.get(
-            "TEAM_MANAGER_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,https://nsec-team-manager.nsec.io"
+            "TEAM_MANAGER_CORS_ORIGINS",
+            "http://localhost:8080,http://127.0.0.1:8080,http://[::1]:8080,https://nsec-team-manager.nsec.io",
         )
         self.cors_origins: list[str] = [o.strip() for o in origins.split(",") if o.strip()]
 
