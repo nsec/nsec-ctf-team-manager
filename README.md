@@ -47,7 +47,7 @@ TEAM_MANAGER_DB_PASSWORD=replace-with-a-strong-password
 # TEAM_MANAGER_DB_PORT=5432
 # Optional overrides:
 # PRETIX_URL=https://registrations.nsec.io/api/v1
-# PRETIX_CTF_NAME=nsec/2027
+# PRETIX_CTF_NAME=northsec/2027
 # TEAM_MANAGER_MAX_MEMBERS=8
 # TEAM_MANAGER_MIN_NAME=1
 # TEAM_MANAGER_MAX_NAME=128

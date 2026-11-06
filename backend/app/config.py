@@ -34,7 +34,7 @@ class Settings:
         self.pretix_url: str = os.environ.get(
             "PRETIX_URL", "https://https://registrations.nsec.io/api/v1"
         ).rstrip("/")
-        self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "nsec/2027")
+        self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "northsec/2027")
         # CORS origins allowed to call the API (frontend dev server).
         origins = os.environ.get(
             "TEAM_MANAGER_CORS_ORIGINS",
