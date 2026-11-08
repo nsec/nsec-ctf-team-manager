@@ -101,5 +101,13 @@
         { order_code: orderCode }
       );
     },
+
+    removeMember(teamId, attendeeEmail, orderCode) {
+      return request(
+        'DELETE',
+        `/api/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(attendeeEmail)}`,
+        { order_code: orderCode }
+      );
+    },
   };
 })();

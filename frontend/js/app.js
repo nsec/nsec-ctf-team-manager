@@ -121,6 +121,21 @@
         adminBadge.textContent = window.I18n.t('team.admin');
         li.appendChild(adminBadge);
       }
+      if (team.is_creator && !m.is_creator) {
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn danger';
+        removeButton.textContent = window.I18n.t('action.removeMember');
+        removeButton.addEventListener('click', () => removeMember(m.attendee_email, false));
+        li.appendChild(removeButton);
+      } else if (!team.is_creator && m.is_current_user) {
+        const leaveButton = document.createElement('button');
+        leaveButton.type = 'button';
+        leaveButton.className = 'btn danger';
+        leaveButton.textContent = window.I18n.t('action.leaveTeam');
+        leaveButton.addEventListener('click', () => removeMember(m.attendee_email, true));
+        li.appendChild(leaveButton);
+      }
       list.appendChild(li);
     });
     const pendingMembers = team.pending_members || [];
@@ -159,9 +174,34 @@
       } else {
         await window.Api.rejectMember(currentTeam.id, memberId, currentTeamOrderCode);
       }
-      const updatedTeam = await window.Api.verifyTeam(currentTeam.name, currentTeamOrderCode);
+      const updatedTeam = await window.Api.verifyTeam(
+        currentTeam.name, currentTeamOrderCode
+      );
       renderTeamView(updatedTeam, currentTeamOrderCode);
       showMessage(window.I18n.t(`message.member${decision === 'approve' ? 'Approved' : 'Rejected'}`), 'success');
+    } catch (err) {
+      showMessage(window.I18n.translateError(err), 'error');
+    }
+  }
+
+  async function removeMember(attendeeEmail, isSelfRemoval) {
+    if (!currentTeam) return;
+    const teamName = currentTeam.name;
+    const confirmKey = isSelfRemoval ? 'confirm.leaveTeam' : 'confirm.removeMember';
+    if (!window.confirm(window.I18n.t(confirmKey, { name: teamName }))) return;
+
+    try {
+      await window.Api.removeMember(currentTeam.id, attendeeEmail, currentTeamOrderCode);
+      if (isSelfRemoval) {
+        show('landing');
+        showMessage(window.I18n.t('message.leftTeam', { name: teamName }), 'success');
+        return;
+      }
+      const updatedTeam = await window.Api.verifyTeam(
+        teamName, currentTeamOrderCode
+      );
+      renderTeamView(updatedTeam, currentTeamOrderCode);
+      showMessage(window.I18n.t('message.memberRemoved'), 'success');
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
     }
@@ -358,10 +398,6 @@
     const orderCode = orderInput.value.trim();
     rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
-    if (!attendeeEmail) {
-      showMessage(window.I18n.t('order.selectAttendee'), 'error');
-      return;
-    }
     try {
       await window.Api.joinTeam(name, orderCode, attendeeEmail);
       input.value = '';

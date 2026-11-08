@@ -119,6 +119,13 @@ def reject_member(
     service.reject_member(team_id, member_id, body.order_code)
 
 
+@app.delete("/api/teams/{team_id}/members/{attendee_email}", status_code=204)
+def remove_member(
+    team_id: int, attendee_email: str, body: MemberDecisionRequest
+) -> None:
+    service.remove_member(team_id, attendee_email, body.order_code)
+
+
 @app.post("/api/teams", status_code=201)
 def create_team(body: TeamCreateRequest) -> dict:
     service.require_valid_order_attendee(body.order_code, body.attendee_email)

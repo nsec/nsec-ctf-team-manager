@@ -198,6 +198,7 @@ def verify_team_members(name: str, order_code: str) -> dict:
                 "attendee_email": member[1],
                 "joined_at": member[3],
                 "is_creator": member[2].casefold() == team[3].casefold(),
+                "is_current_user": member[2].casefold() == order_code.strip().casefold(),
             }
             for member in approved_members
         ],
@@ -207,6 +208,7 @@ def verify_team_members(name: str, order_code: str) -> dict:
                 "attendee_email": member[1],
                 "joined_at": member[3],
                 "is_creator": False,
+                "is_current_user": member[2].casefold() == order_code.strip().casefold(),
             }
             for member in pending_members
         ],
@@ -267,6 +269,43 @@ def reject_member(team_id: int, member_id: int, order_code: str) -> None:
         if member is None or member[0] != "pending":
             raise TeamError("No pending membership request found.", 404)
         conn.execute("DELETE FROM members WHERE id = %s", (member_id,))
+
+
+def remove_member(team_id: int, attendee_email: str, order_code: str) -> None:
+    """Let the creator remove an approved member or a member leave their team."""
+    conn = get_connection()
+    with conn.transaction():
+        team = conn.execute(
+            "SELECT creator_order_code FROM teams WHERE id = %s FOR UPDATE",
+            (team_id,),
+        ).fetchone()
+        if team is None:
+            raise TeamError("No team found with this name.", 404)
+
+        member = conn.execute(
+            "SELECT id, username_folded, order_code, membership_status FROM members "
+            "WHERE username_folded = %s AND team_id = %s FOR UPDATE",
+            (_fold(attendee_email), team_id),
+        ).fetchone()
+        if member is None or member[3] != "approved":
+            raise TeamError("No approved team member found.", 404)
+
+        creator_is_target = member[2].casefold() == team[0].casefold()
+        if creator_is_target:
+            raise TeamError(
+                "The team creator cannot leave or be removed. Delete the team instead.",
+                403,
+            )
+
+        caller_is_creator = team[0].casefold() == order_code.strip().casefold()
+        is_self_removal = member[2].casefold() == order_code.strip().casefold()
+        if not caller_is_creator and not is_self_removal:
+            raise TeamError("You can only leave your own team.", 403)
+
+        conn.execute(
+            "DELETE FROM members WHERE username_folded = %s AND team_id = %s",
+            (member[1], team_id),
+        )
 
 
 def delete_team(team_id: int, order_code: str) -> None:

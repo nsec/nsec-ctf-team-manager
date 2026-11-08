@@ -576,6 +576,81 @@ test('any verified team member can approve a pending request', async () => {
   assert.strictEqual(elements['pending-members-section'].hidden, true);
 });
 
+test('creator can remove an approved member and team view refreshes', async () => {
+  let removalArgs;
+  let verificationCount = 0;
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name) => {
+      verificationCount++;
+      return {
+        id: 65,
+        name,
+        ctf_experience: 'regular',
+        is_creator: true,
+        members: verificationCount === 1
+          ? [
+            {
+              id: 1,
+              attendee_email: 'alice@example.com',
+              is_creator: true,
+              is_current_user: true,
+            },
+            { id: 2, attendee_email: 'bob@example.com', is_creator: false },
+          ]
+          : [{ id: 1, attendee_email: 'alice@example.com', is_creator: true }],
+      };
+    },
+    removeMember: async (...args) => { removalArgs = args; },
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'QHB8A';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+
+  const removeButton = elements['member-list'].children[1].children[1];
+  await removeButton.on_click();
+
+  assert.deepStrictEqual(removalArgs, [65, 'bob@example.com', 'QHB8A']);
+  assert.strictEqual(verificationCount, 2);
+  assert.strictEqual(elements['member-list'].children.length, 1);
+  assert.strictEqual(elements.message.textContent, 'message.memberRemoved');
+});
+
+test('approved member can leave their own team', async () => {
+  let removalArgs;
+  window.Api = {
+    loadConfig: async () => {},
+    verifyTeam: async (name) => ({
+      id: 66,
+      name,
+      ctf_experience: 'regular',
+      is_creator: false,
+      members: [
+        { id: 1, attendee_email: 'alice@example.com', is_creator: true },
+        {
+          id: 2,
+          attendee_email: 'bob@example.com',
+          is_creator: false,
+          is_current_user: true,
+        },
+      ],
+    }),
+    removeMember: async (...args) => { removalArgs = args; },
+  };
+  loadApp();
+  elements['verify-name'].value = 'Kernel Panic';
+  elements['verify-order-code'].value = 'JOIN2';
+  await elements['verify-form'].on_submit({ preventDefault() {} });
+
+  const leaveButton = elements['member-list'].children[1].children[1];
+  await leaveButton.on_click();
+
+  assert.deepStrictEqual(removalArgs, [66, 'bob@example.com', 'JOIN2']);
+  assert.strictEqual(elements['landing'].hidden, false);
+  assert.strictEqual(elements.message.textContent, 'message.leftTeam');
+});
+
 console.log('showMessage uses textContent:');
 PAYLOADS.forEach((p) => {
   test(JSON.stringify(p), async () => {

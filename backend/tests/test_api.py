@@ -89,6 +89,18 @@ def reject_member(team_id, member_id, order_code=TEST_ORDER_CODE):
     )
 
 
+def remove_member(
+    team_id,
+    attendee_email,
+    order_code=TEST_ORDER_CODE,
+):
+    return client.request(
+        "DELETE",
+        f"/api/teams/{team_id}/members/{attendee_email}",
+        json={"order_code": order_code},
+    )
+
+
 def setup_function():
     reset_db()
 
@@ -284,6 +296,95 @@ def test_only_pending_requests_can_be_decided():
     repeated = approve_member(team_id, member_id)
     assert repeated.status_code == 404
     assert repeated.json()["detail"] == "No pending membership request found."
+
+
+def test_creator_can_remove_an_approved_member():
+    created = create_team("Remove member")
+    team_id = created.json()["id"]
+    request = join_team("Remove member", "second@example.com", "JOIN2")
+    member_id = request.json()["member_id"]
+    assert approve_member(team_id, member_id).status_code == 204
+
+    removed = remove_member(team_id, "second@example.com")
+
+    assert removed.status_code == 204
+    assert [member["attendee_email"] for member in verify_team("Remove member").json()["members"]] == [
+        TEST_ATTENDEE_EMAIL,
+    ]
+    assert verify_team("Remove member", "JOIN2").status_code == 403
+
+
+def test_approved_member_can_leave_their_team():
+    created = create_team("Leave team")
+    team_id = created.json()["id"]
+    request = join_team("Leave team", "second@example.com", "JOIN2")
+    member_id = request.json()["member_id"]
+    assert approve_member(team_id, member_id).status_code == 204
+
+    left = remove_member(team_id, "second@example.com", "JOIN2")
+
+    assert left.status_code == 204
+    assert [member["attendee_email"] for member in verify_team("Leave team").json()["members"]] == [
+        TEST_ATTENDEE_EMAIL,
+    ]
+    assert verify_team("Leave team", "JOIN2").status_code == 403
+
+
+def test_member_cannot_remove_an_unrelated_member():
+    created = create_team("Removal authorization")
+    team_id = created.json()["id"]
+    first = join_team("Removal authorization", "first@example.com", "FIRST")
+    second = join_team("Removal authorization", "second@example.com", "SECOND")
+    assert approve_member(team_id, first.json()["member_id"]).status_code == 204
+    assert approve_member(team_id, second.json()["member_id"]).status_code == 204
+
+    denied = remove_member(team_id, "second@example.com", "FIRST")
+
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "You can only leave your own team."
+    assert len(verify_team("Removal authorization").json()["members"]) == 3
+
+
+def test_attendees_sharing_an_order_code_can_remove_each_other_by_email():
+    created = create_team("Shared order")
+    team_id = created.json()["id"]
+    first = join_team("Shared order", "second@example.com", "SHARED")
+    second = join_team("Shared order", "third@example.com", "SHARED")
+    assert approve_member(team_id, first.json()["member_id"]).status_code == 204
+    assert approve_member(team_id, second.json()["member_id"]).status_code == 204
+
+    removed = remove_member(team_id, "third@example.com", "SHARED")
+
+    assert removed.status_code == 204
+    assert len(verify_team("Shared order", "SHARED").json()["members"]) == 2
+
+
+def test_creator_member_cannot_be_removed():
+    created = create_team("Protect creator")
+    team_id = created.json()["id"]
+    request = join_team("Protect creator", "second@example.com", "JOIN2")
+    assert approve_member(team_id, request.json()["member_id"]).status_code == 204
+
+    removed = remove_member(team_id, TEST_ATTENDEE_EMAIL, TEST_ORDER_CODE)
+
+    assert removed.status_code == 403
+    assert removed.json()["detail"] == (
+        "The team creator cannot leave or be removed. Delete the team instead."
+    )
+    assert len(verify_team("Protect creator").json()["members"]) == 2
+
+
+def test_only_approved_members_can_be_removed():
+    created = create_team("Remove pending")
+    request = join_team("Remove pending", "pending@example.com", "PENDING")
+
+    pending = remove_member(created.json()["id"], "pending@example.com")
+    missing = remove_member(created.json()["id"], "missing@example.com")
+
+    assert pending.status_code == 404
+    assert pending.json()["detail"] == "No approved team member found."
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "No approved team member found."
 
 
 def test_team_members_require_matching_order_code():

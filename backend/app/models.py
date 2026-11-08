@@ -42,6 +42,7 @@ class MemberOut(BaseModel):
     attendee_email: str
     joined_at: datetime
     is_creator: bool
+    is_current_user: bool
 
 
 class TeamOut(BaseModel):
