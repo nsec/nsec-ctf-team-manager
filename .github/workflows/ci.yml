@@ -62,7 +62,7 @@ jobs:
           node-version: 22
 
       - name: Run XSS tests
-        run: node tests/xss.test.js
+        run: node tests/test.js
 
   publish-image:
     name: Build and publish OCI image

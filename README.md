@@ -16,7 +16,7 @@ backend/          FastAPI app (uv-managed)
 frontend/         Vanilla HTML/CSS/JS (no framework)
   js/api.js       fetch() client for the API
   js/config.js    Frontend config (limits overridden by GET /api/config)
-  tests/          XSS regression tests (node tests/xss.test.js)
+  tests/          frontend tests (node tests/test.js)
 ```
 
 ## Run

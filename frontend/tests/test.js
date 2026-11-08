@@ -1,15 +1,11 @@
 /*
- * XSS regression tests for the Team Manager frontend.
+ * tests for the Team Manager frontend.
  *
  * Run with Node (no dependencies needed):
- *   node tests/xss.test.js
+ *   node tests/test.js
  *
- * Or in a browser: open tests/xss.test.html (requires the app pages to be
+ * Or in a browser: open tests/test.html (requires the app pages to be
  * served from the same origin).
- *
- * Strategy: simulate hostile team/member names and verify that rendering
- * paths use textContent (no HTML parsing) and that escapeHtml neutralizes
- * markup. A minimal DOM stub is used so this runs in Node.
  */
 'use strict';
 
