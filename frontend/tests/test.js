@@ -88,6 +88,7 @@ function descendantText(element) {
   'team-view-ctf-experience', 'team-experience-status',
   'pending-members-section', 'pending-member-list', 'pending-member-count',
   'create-ctf-experience-regular', 'create-ctf-experience-ai',
+  'verify-form-submit',
   'team-ctf-experience-regular', 'team-ctf-experience-ai',
 ].forEach(register);
 elements['create-ctf-experience-regular'].value = 'regular';
@@ -103,6 +104,9 @@ global.document = {
       return ['regular', 'ai']
         .map((value) => elements[`create-ctf-experience-${value}`])
         .find((input) => input.checked);
+    }
+    if (selector === '#verify-form button[type="submit"]') {
+      return elements['verify-form-submit'];
     }
     return null;
   },
@@ -132,6 +136,17 @@ global.window.localStorage = {
 new Function('window',
   fs.readFileSync(require('path').join(__dirname, '..', 'js', 'config.js'), 'utf8')
 )(global.window);
+global.window.TEAM_CONFIG.turnstileSiteKey = 'test-site-key';
+let nextTurnstileWidgetId = 1;
+global.window.turnstile = {
+  render(_container, options) {
+    const widgetId = nextTurnstileWidgetId++;
+    queueMicrotask(() => options.callback('test-turnstile-token'));
+    return widgetId;
+  },
+  execute() {},
+  reset() {},
+};
 
 // Load escapeHtml from app.js by extracting it (app.js is an IIFE that also
 // wires event listeners; stubs above keep it loadable).
@@ -268,8 +283,8 @@ test('verify action loads team names and submits the order code', async () => {
   window.Api = {
     loadConfig: async () => {},
     listTeams: async () => [{ name: 'Kernel Panic', ctf_experience: 'ai' }],
-    verifyTeam: async (name, orderCode) => {
-      verified = [name, orderCode];
+    verifyTeam: async (name, orderCode, token) => {
+      verified = [name, orderCode, token];
       return {
         id: 4,
         name,
@@ -287,7 +302,7 @@ test('verify action loads team names and submits the order code', async () => {
   select.value = 'Kernel Panic';
   document.getElementById('verify-order-code').value = 'QHB8A';
   await elements['verify-form'].on_submit({ preventDefault() {} });
-  assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
+  assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A', 'test-turnstile-token']);
   assert.strictEqual(
     elements['team-view-ctf-experience'].textContent,
     'experience.ai'
@@ -377,8 +392,9 @@ test('order lookup populates attendee email options as text', async () => {
   let requestedCode;
   window.Api = {
     loadConfig: async () => {},
-    getOrderAttendees: async (code) => {
+    getOrderAttendees: async (code, token) => {
       requestedCode = code;
+      assert.strictEqual(token, 'test-turnstile-token');
       return [email];
     },
   };
@@ -431,8 +447,9 @@ test('pressing Enter in either order code input loads attendees', async () => {
     let requestedCode;
     window.Api = {
       loadConfig: async () => {},
-      getOrderAttendees: async (code) => {
+      getOrderAttendees: async (code, token) => {
         requestedCode = code;
+        assert.strictEqual(token, 'test-turnstile-token');
         return ['alice@example.com'];
       },
     };
@@ -473,7 +490,7 @@ test('create submission includes order code and selected attendee email', async 
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });
   assert.deepStrictEqual(submitted, [
-    'Kernel Panic', 'QHB8A', 'alice@example.com', 'regular',
+    'Kernel Panic', 'QHB8A', 'alice@example.com', 'regular', 'test-turnstile-token',
   ]);
   assert.deepStrictEqual(verified, ['Kernel Panic', 'QHB8A']);
   assert.strictEqual(elements['team-view-name'].textContent, 'Kernel Panic');
@@ -496,7 +513,7 @@ test('create submission includes selected AI CTF experience', async () => {
   document.getElementById('create-attendee-email').value = 'alice@example.com';
   await elements['create-form'].on_submit({ preventDefault() {} });
   assert.deepStrictEqual(submitted, [
-    'AI players', 'QHB8A', 'alice@example.com', 'ai',
+    'AI players', 'QHB8A', 'alice@example.com', 'ai', 'test-turnstile-token',
   ]);
 });
 
@@ -517,6 +534,7 @@ test('create submit button shows pending state and is restored afterward', async
   assert.strictEqual(submitButton.disabled, true);
   assert.strictEqual(submitButton.textContent, 'action.creating');
 
+  while (!finishCreate) await new Promise((resolve) => setImmediate(resolve));
   finishCreate();
   await submission;
   assert.strictEqual(submitButton.disabled, false);
@@ -537,7 +555,7 @@ test('join submission includes only order code and selected attendee email', asy
   document.getElementById('join-attendee-email').value = 'alice@example.com';
   await elements['join-form'].on_submit({ preventDefault() {} });
   assert.deepStrictEqual(submitted, [
-    'Kernel Panic', 'QHB8A', 'alice@example.com',
+    'Kernel Panic', 'QHB8A', 'alice@example.com', 'test-turnstile-token',
   ]);
   assert.strictEqual(verificationCount, 0, 'pending applicant must not enter team view');
   assert.strictEqual(elements.message.textContent, 'message.joinRequestSubmitted');

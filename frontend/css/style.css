@@ -144,6 +144,10 @@ main {
   margin-bottom: 1rem;
 }
 
+.turnstile-widget:not(:empty) {
+  margin: 1rem 0;
+}
+
 .btn {
   padding: 0.65rem 1.5rem;
   border: 0;

@@ -7,10 +7,13 @@ from dotenv import load_dotenv
 
 
 ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+ROOT_ENV_FILE = ENV_FILE.parent.parent / ".env"
 
 
 def _load_environment(env_file: Path = ENV_FILE) -> None:
     load_dotenv(env_file)
+    if env_file == ENV_FILE:
+        load_dotenv(ROOT_ENV_FILE)
 
 
 _load_environment()
@@ -35,10 +38,18 @@ class Settings:
             "PRETIX_URL", "https://https://registrations.nsec.io/api/v1"
         ).rstrip("/")
         self.pretix_ctf_name: str = os.environ.get("PRETIX_CTF_NAME", "northsec/2027")
+        self.cloudflare_site_key: str = os.environ.get("CLOUDFLARE_SITE_KEY", "")
+        self.cloudflare_secret_key: str = os.environ.get("CLOUDFLARE_SECRET_KEY", "")
+        hostnames = os.environ.get("TURNSTILE_HOSTNAMES", "team-manager.nsec.io")
+        self.turnstile_hostnames: set[str] = {
+            hostname.strip().lower().rstrip(".")
+            for hostname in hostnames.split(",")
+            if hostname.strip()
+        }
         # CORS origins allowed to call the API (frontend dev server).
         origins = os.environ.get(
             "TEAM_MANAGER_CORS_ORIGINS",
-            "http://localhost:8080,http://127.0.0.1:8080,http://[::1]:8080,https://nsec-team-manager.nsec.io",
+            "http://localhost:8080,http://127.0.0.1:8080,http://[::1]:8080,https://team-manager.nsec.io",
         )
         self.cors_origins: list[str] = [o.strip() for o in origins.split(",") if o.strip()]
 

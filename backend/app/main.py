@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +21,7 @@ from .models import (
     TeamOut,
     TeamVerifyRequest,
 )
+from .turnstile import require_valid_turnstile_token
 
 # Frontend directory (../../frontend relative to this file).
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
@@ -47,7 +48,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Turnstile-Token"],
 )
 
 
@@ -73,6 +74,7 @@ def get_config() -> dict:
         "maxMembersPerTeam": settings.max_members_per_team,
         "minTeamNameLength": settings.min_team_name_length,
         "maxTeamNameLength": settings.max_team_name_length,
+        "turnstileSiteKey": settings.cloudflare_site_key,
     }
 
 
@@ -82,12 +84,20 @@ def list_teams() -> list[dict]:
 
 
 @app.get("/api/orders/{order_code}/attendees")
-def get_order_attendees(order_code: str) -> list[str]:
+async def get_order_attendees(
+    order_code: str,
+    turnstile_token: str | None = Header(default=None, alias="X-Turnstile-Token"),
+) -> list[str]:
+    await require_valid_turnstile_token(turnstile_token, "attendee_lookup")
     return service.get_order_attendees(order_code)
 
 
 @app.post("/api/teams/verify", response_model=TeamOut)
-def verify_team_members(body: TeamVerifyRequest) -> TeamOut:
+async def verify_team_members(
+    body: TeamVerifyRequest,
+    turnstile_token: str | None = Header(default=None, alias="X-Turnstile-Token"),
+) -> TeamOut:
+    await require_valid_turnstile_token(turnstile_token, "verify_team")
     return TeamOut(**service.verify_team_members(body.name, body.order_code))
 
 
@@ -127,7 +137,11 @@ def remove_member(
 
 
 @app.post("/api/teams", status_code=201)
-def create_team(body: TeamCreateRequest) -> dict:
+async def create_team(
+    body: TeamCreateRequest,
+    turnstile_token: str | None = Header(default=None, alias="X-Turnstile-Token"),
+) -> dict:
+    await require_valid_turnstile_token(turnstile_token, "create_team")
     service.require_valid_order_attendee(body.order_code, body.attendee_email)
     return service.create_team(
         body.name,
@@ -138,7 +152,11 @@ def create_team(body: TeamCreateRequest) -> dict:
 
 
 @app.post("/api/teams/join", status_code=200)
-def join_team(body: TeamJoinRequest) -> dict:
+async def join_team(
+    body: TeamJoinRequest,
+    turnstile_token: str | None = Header(default=None, alias="X-Turnstile-Token"),
+) -> dict:
+    await require_valid_turnstile_token(turnstile_token, "join_team")
     service.require_valid_order_attendee(body.order_code, body.attendee_email)
     return service.join_team(body.name, body.attendee_email, body.order_code)
 

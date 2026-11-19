@@ -8,6 +8,9 @@ window.TEAM_CONFIG = {
   // serve the frontend from the FastAPI app). Example: 'http://localhost:8000'.
   apiBase: '',
 
+  // Public Turnstile sitekey; supplied by GET /api/config.
+  turnstileSiteKey: '',
+
   // Maximum number of members allowed per team.
   // Overridden at runtime by GET /api/config when the backend is reachable.
   maxMembersPerTeam: 8,

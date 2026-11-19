@@ -24,16 +24,19 @@ os.environ["TEAM_MANAGER_DB_PASSWORD"] = os.environ.get(
 os.environ["TEAM_MANAGER_LOG_FILE"] = os.path.join(_tmp, "test.log")
 os.environ["TEAM_MANAGER_MAX_MEMBERS"] = "5"
 os.environ["TEAM_MANAGER_MIN_NAME"] = "3"
+os.environ["CLOUDFLARE_SITE_KEY"] = "test-site-key"
+os.environ["CLOUDFLARE_SECRET_KEY"] = "test-secret"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app import service  # noqa: E402
+from app import main  # noqa: E402
 from app.db import reset_db  # noqa: E402
 from app.main import app  # noqa: E402
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-Turnstile-Token": "test-token"})
 TEST_ORDER_CODE = "QHA9N"
 TEST_ATTENDEE_EMAIL = "attendee@example.com"
 
@@ -41,6 +44,11 @@ TEST_ATTENDEE_EMAIL = "attendee@example.com"
 @pytest.fixture(autouse=True)
 def valid_test_ticket(monkeypatch):
     monkeypatch.setattr(service, "is_valid_order_attendee", lambda *_: True)
+
+    async def valid_turnstile(_token, _action):
+        return None
+
+    monkeypatch.setattr(main, "require_valid_turnstile_token", valid_turnstile)
 
 
 def create_team(name, ctf_experience="regular"):
@@ -488,6 +496,8 @@ def test_config_endpoint():
     r = client.get("/api/config")
     assert r.status_code == 200
     assert r.json()["maxMembersPerTeam"] == 5
+    assert r.json()["turnstileSiteKey"] == "test-site-key"
+    assert "turnstileSecretKey" not in r.json()
 
 
 def test_order_and_attendee_are_required():
@@ -536,6 +546,34 @@ def test_order_attendees_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == [TEST_ATTENDEE_EMAIL]
+
+
+def test_protected_order_routes_use_distinct_turnstile_actions(monkeypatch):
+    actions = []
+
+    async def record_action(_token, action):
+        actions.append(action)
+
+    monkeypatch.setattr(main, "require_valid_turnstile_token", record_action)
+    monkeypatch.setattr(service, "get_order_attendees", lambda _code: [])
+
+    assert client.get(f"/api/orders/{TEST_ORDER_CODE}/attendees").status_code == 200
+    assert create_team("Action test").status_code == 201
+    assert join_team("Action test", "other@example.com", "JOIN2").status_code == 200
+    assert verify_team("Action test").status_code == 200
+    assert actions == ["attendee_lookup", "create_team", "join_team", "verify_team"]
+
+
+def test_order_attendees_requires_turnstile_token(monkeypatch):
+    async def reject_missing(token, _action):
+        from fastapi import HTTPException
+
+        if not token:
+            raise HTTPException(status_code=403, detail="Turnstile verification failed.")
+
+    monkeypatch.setattr(main, "require_valid_turnstile_token", reject_missing)
+    response = TestClient(app).get(f"/api/orders/{TEST_ORDER_CODE}/attendees")
+    assert response.status_code == 403
 
 
 def test_pretix_unavailable_fails_closed_and_logs_traceback(monkeypatch, caplog):

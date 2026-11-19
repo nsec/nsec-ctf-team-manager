@@ -38,6 +38,9 @@ Create a `.env` file in the repository root. You can start from
 
 ```dotenv
 PRETIX_API_KEY=your-pretix-api-key
+CLOUDFLARE_SITE_KEY=your-turnstile-sitekey
+CLOUDFLARE_SECRET_KEY=your-turnstile-secret
+TURNSTILE_HOSTNAMES=team-manager.nsec.io
 # PostgreSQL credentials (the same user/database are initialized by Compose).
 TEAM_MANAGER_DB_NAME=team_manager
 TEAM_MANAGER_DB_USER=team_manager
@@ -85,7 +88,8 @@ three backups),
 `TEAM_MANAGER_MAX_MEMBERS` (5), `TEAM_MANAGER_MIN_NAME` (3),
 `TEAM_MANAGER_MAX_NAME` (32), `TEAM_MANAGER_CORS_ORIGINS`.
 Copy `.env.example` to `.env` to configure local backend
-settings, or to the repository root as `.env` for Docker Compose. Set
+settings (the backend also loads the repository-root `.env` as a fallback), or
+to the repository root as `.env` for Docker Compose. Set
 `TEAM_MANAGER_DB_HOST=localhost` when running the backend directly on your
 machine; Compose defaults it to `postgres`. The backend loads `backend/.env`
 on startup regardless of the current working directory; variables already set
@@ -98,5 +102,6 @@ Configure `PRETIX_API_KEY`, `PRETIX_URL`, and `PRETIX_CTF_NAME` in the backend
 environment. Set `PRETIX_CTF_NAME` to the event title to discover it by name,
 or to `organizer-slug/event-slug` to address one event directly (for example,
 `northsec/2027`).
+Set `CLOUDFLARE_SITE_KEY` and `CLOUDFLARE_SECRET_KEY` for Turnstile.
 
 Frontend: `frontend/js/config.js` (`apiBase` for cross-origin setups).

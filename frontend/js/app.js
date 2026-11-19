@@ -24,6 +24,8 @@
   let currentTeam = null;
   let currentTeamOrderCode = '';
   const orderCodeStorageKey = 'nsec-team-manager-pretix-order-code';
+  const turnstileWidgets = new Map();
+  const turnstileWaiters = new Map();
   const orderCodeInputs = [
     'create-order-code',
     'join-order-code',
@@ -77,6 +79,65 @@
   function hideMessage() {
     messageEl.className = 'message hidden';
     messageEl.textContent = '';
+  }
+
+  function settleTurnstile(containerId, error, token) {
+    const waiter = turnstileWaiters.get(containerId);
+    if (!waiter) return;
+    turnstileWaiters.delete(containerId);
+    if (error) waiter.reject(error);
+    else waiter.resolve(token);
+  }
+
+  function getTurnstileToken(containerId, action) {
+    if (!cfg.turnstileSiteKey || !window.turnstile) {
+      return Promise.reject(
+        new Error('Request verification is temporarily unavailable. Please try again.')
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      turnstileWaiters.set(containerId, { resolve, reject });
+      try {
+        let widgetId = turnstileWidgets.get(containerId);
+        if (widgetId === undefined) {
+          widgetId = window.turnstile.render(`#${containerId}`, {
+            sitekey: cfg.turnstileSiteKey,
+            action,
+            execution: 'execute',
+            appearance: 'execute',
+            callback: (token) => settleTurnstile(containerId, null, token),
+            'error-callback': () => settleTurnstile(
+              containerId,
+              new Error('Turnstile verification failed.')
+            ),
+            'expired-callback': () => settleTurnstile(
+              containerId,
+              new Error('Turnstile verification failed.')
+            ),
+          });
+          if (widgetId === undefined || widgetId === null) {
+            throw new Error('Request verification is temporarily unavailable. Please try again.');
+          }
+          turnstileWidgets.set(containerId, widgetId);
+        }
+        window.turnstile.execute(widgetId);
+      } catch (error) {
+        settleTurnstile(containerId, error);
+      }
+    });
+  }
+
+  async function withTurnstile(containerId, action, request) {
+    try {
+      const token = await getTurnstileToken(containerId, action);
+      return await request(token);
+    } finally {
+      const widgetId = turnstileWidgets.get(containerId);
+      if (widgetId !== undefined && window.turnstile) {
+        window.turnstile.reset(widgetId);
+      }
+    }
   }
 
   // --- Config display -----------------------------------------------------
@@ -283,7 +344,7 @@
     }
   });
 
-  async function loadOrderAttendees(orderInput, emailSelect, loadButton) {
+  async function loadOrderAttendees(orderInput, emailSelect, loadButton, widgetContainerId) {
     const orderCode = orderInput.value.trim();
     if (!orderCode) {
       showMessage(window.I18n.t('order.enterCode'), 'error');
@@ -295,7 +356,11 @@
     loadButton.disabled = true;
     resetOptions(emailSelect, window.I18n.t('order.loadingAttendees'));
     try {
-      const emails = await window.Api.getOrderAttendees(orderCode);
+      const emails = await withTurnstile(
+        widgetContainerId,
+        'attendee_lookup',
+        (token) => window.Api.getOrderAttendees(orderCode, token)
+      );
       resetOptions(emailSelect, window.I18n.t('order.selectAttendeePlaceholder'));
       emails.forEach((email) => {
         const option = document.createElement('option');
@@ -320,9 +385,9 @@
   }
 
   [
-    ['create', 'create-order-code', 'create-attendee-email', 'create-load-attendees'],
-    ['join', 'join-order-code', 'join-attendee-email', 'join-load-attendees'],
-  ].forEach(([, orderId, emailId, buttonId]) => {
+    ['create', 'create-order-code', 'create-attendee-email', 'create-load-attendees', 'create-lookup-turnstile'],
+    ['join', 'join-order-code', 'join-attendee-email', 'join-load-attendees', 'join-lookup-turnstile'],
+  ].forEach(([, orderId, emailId, buttonId, widgetContainerId]) => {
     const orderInput = document.getElementById(orderId);
     const emailSelect = document.getElementById(emailId);
     const loadButton = document.getElementById(buttonId);
@@ -334,11 +399,11 @@
     orderInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        loadOrderAttendees(orderInput, emailSelect, loadButton);
+        return loadOrderAttendees(orderInput, emailSelect, loadButton, widgetContainerId);
       }
     });
     loadButton.addEventListener('click', () => {
-      loadOrderAttendees(orderInput, emailSelect, loadButton);
+      return loadOrderAttendees(orderInput, emailSelect, loadButton, widgetContainerId);
     });
   });
 
@@ -372,7 +437,11 @@
     submitButton.disabled = true;
     submitButton.textContent = window.I18n.t('action.creating');
     try {
-      await window.Api.createTeam(name, orderCode, attendeeEmail, ctfExperience);
+      await withTurnstile(
+        'create-submit-turnstile',
+        'create_team',
+        (token) => window.Api.createTeam(name, orderCode, attendeeEmail, ctfExperience, token)
+      );
       showMessage(`Team "${name}" created!`, 'success');
       input.value = '';
       document.getElementById('create-ctf-experience-regular').checked = true;
@@ -398,8 +467,15 @@
     const orderCode = orderInput.value.trim();
     rememberOrderCode(orderInput);
     const attendeeEmail = emailSelect.value;
+    const submitButton = document.getElementById('join-submit');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
     try {
-      await window.Api.joinTeam(name, orderCode, attendeeEmail);
+      await withTurnstile(
+        'join-submit-turnstile',
+        'join_team',
+        (token) => window.Api.joinTeam(name, orderCode, attendeeEmail, token)
+      );
       input.value = '';
       emailSelect.value = '';
       emailSelect.disabled = true;
@@ -408,6 +484,8 @@
       showMessage(window.I18n.t('message.joinRequestSubmitted', { name }), 'success');
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
+    } finally {
+      submitButton.disabled = false;
     }
   });
 
@@ -416,11 +494,20 @@
     const teamName = document.getElementById('verify-name').value.trim();
     const orderCode = document.getElementById('verify-order-code').value.trim();
     rememberOrderCode(document.getElementById('verify-order-code'));
+    const submitButton = e.submitter || document.getElementById('verify-submit');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
     try {
-      const team = await window.Api.verifyTeam(teamName, orderCode);
+      const team = await withTurnstile(
+        'verify-submit-turnstile',
+        'verify_team',
+        (token) => window.Api.verifyTeam(teamName, orderCode, token)
+      );
       renderTeamView(team, orderCode);
     } catch (err) {
       showMessage(window.I18n.translateError(err), 'error');
+    } finally {
+      submitButton.disabled = false;
     }
   });
 

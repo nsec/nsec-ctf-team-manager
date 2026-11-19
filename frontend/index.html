@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- XSS hardening: no inline scripts/styles, no external script origins,
-       no eval. connect-src 'self' allows API calls to the same origin only.
+    <!-- XSS hardening: no inline scripts/styles, no eval. Turnstile is the only
+      external script/frame/connect origin allowed by this policy.
        font-src/style-src include fonts.gstatic.com/fonts.googleapis.com for
        the Roboto webfont (same as nsec.io). -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+          content="default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+  <link rel="preconnect" href="https://challenges.cloudflare.com" />
   <link rel="icon" href="img/favicon.ico" sizes="any" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" />
   <title>NSEC Team Manager</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
 </head>
 <body>
   <header>
@@ -91,6 +93,7 @@
         <div class="actions attendee-lookup-actions">
           <button id="create-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
         </div>
+        <div id="create-lookup-turnstile" class="turnstile-widget"></div>
         <label for="create-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
         <select id="create-attendee-email" name="attendeeEmail" required disabled>
           <option value="" selected disabled data-i18n="order.selectAttendeePlaceholder">Enter an order code and find attendees</option>
@@ -99,6 +102,7 @@
           <button id="create-submit" type="submit" class="btn primary" data-i18n="action.create">Create</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
         </div>
+        <div id="create-submit-turnstile" class="turnstile-widget"></div>
       </form>
     </section>
 
@@ -130,15 +134,17 @@
         <div class="actions attendee-lookup-actions">
           <button id="join-load-attendees" type="button" class="btn" data-i18n="action.findAttendees">Find attendees</button>
         </div>
+        <div id="join-lookup-turnstile" class="turnstile-widget"></div>
         <label for="join-attendee-email" data-i18n="form.attendeeEmail">Attendee email</label>
         <select id="join-attendee-email" name="attendeeEmail" required disabled>
           <option value="" selected disabled data-i18n="order.selectAttendeePlaceholder">Enter an order code and find attendees</option>
         </select>
         <p class="hint" data-i18n="join.membersHint" data-i18n-max="maxMembersPerTeam">Teams can have up to 8 members.</p>
         <div class="actions">
-          <button type="submit" class="btn primary" data-i18n="action.join">Join</button>
+          <button id="join-submit" type="submit" class="btn primary" data-i18n="action.join">Join</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
         </div>
+        <div id="join-submit-turnstile" class="turnstile-widget"></div>
       </form>
     </section>
 
@@ -164,9 +170,10 @@
         />
         <p id="verify-order-code-hint" class="hint" data-i18n="order.codeHelp">Your Pretix order number is the 5 characters in the subject of the email containing your tickets. Look for a subject containing "Your Northsec order".</p>
         <div class="actions">
-          <button type="submit" class="btn primary" data-i18n="action.verify">Verify</button>
+          <button id="verify-submit" type="submit" class="btn primary" data-i18n="action.verify">Verify</button>
           <button type="button" class="btn" data-action="back" data-i18n="action.back">Back</button>
         </div>
+        <div id="verify-submit-turnstile" class="turnstile-widget"></div>
       </form>
     </section>
 
@@ -214,9 +221,9 @@
     </p>
   </footer>
 
-  <script src="js/config.js"></script>
-  <script src="js/i18n.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/app.js" defer></script>
 </body>
 </html>

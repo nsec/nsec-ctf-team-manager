@@ -10,10 +10,13 @@
   // frontend is served separately (e.g. http://localhost:8000).
   const API_BASE = window.TEAM_CONFIG.apiBase || '';
 
-  async function request(method, path, body) {
+  async function request(method, path, body, turnstileToken) {
+    const headers = {};
+    if (body) headers['Content-Type'] = 'application/json';
+    if (turnstileToken) headers['X-Turnstile-Token'] = turnstileToken;
     const res = await fetch(API_BASE + path, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
     let data = null;
@@ -41,36 +44,36 @@
       }
     },
 
-    getOrderAttendees(orderCode) {
-      return request('GET', `/api/orders/${encodeURIComponent(orderCode)}/attendees`);
+    getOrderAttendees(orderCode, turnstileToken) {
+      return request('GET', `/api/orders/${encodeURIComponent(orderCode)}/attendees`, null, turnstileToken);
     },
 
-    createTeam(name, orderCode, attendeeEmail, ctfExperience) {
+    createTeam(name, orderCode, attendeeEmail, ctfExperience, turnstileToken) {
       return request('POST', '/api/teams', {
         name,
         ctf_experience: ctfExperience,
         order_code: orderCode,
         attendee_email: attendeeEmail,
-      });
+      }, turnstileToken);
     },
 
-    joinTeam(name, orderCode, attendeeEmail) {
+    joinTeam(name, orderCode, attendeeEmail, turnstileToken) {
       return request('POST', '/api/teams/join', {
         name,
         order_code: orderCode,
         attendee_email: attendeeEmail,
-      });
+      }, turnstileToken);
     },
 
     listTeams() {
       return request('GET', '/api/teams');
     },
 
-    verifyTeam(name, orderCode) {
+    verifyTeam(name, orderCode, turnstileToken) {
       return request('POST', '/api/teams/verify', {
         name,
         order_code: orderCode,
-      });
+      }, turnstileToken);
     },
 
     deleteTeam(teamId, orderCode) {

@@ -41,3 +41,17 @@ def test_default_cors_origins_include_ipv6_loopback(monkeypatch):
     monkeypatch.delenv("TEAM_MANAGER_CORS_ORIGINS", raising=False)
 
     assert "http://[::1]:8080" in Settings().cors_origins
+
+
+def test_turnstile_settings(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("CLOUDFLARE_SITE_KEY", "public-site-key")
+    monkeypatch.setenv("CLOUDFLARE_SECRET_KEY", "private-secret")
+    monkeypatch.setenv("TURNSTILE_HOSTNAMES", "team-manager.nsec.io, LOCALHOST.")
+
+    configured = Settings()
+
+    assert configured.cloudflare_site_key == "public-site-key"
+    assert configured.cloudflare_secret_key == "private-secret"
+    assert configured.turnstile_hostnames == {"team-manager.nsec.io", "localhost"}
